@@ -27,3 +27,34 @@ class Group(models.Model):
 
     def __str__(self):
         return self.name
+    
+
+
+
+class Trip(models.Model):
+    """
+    A specific event or sub-category within a group (e.g., 'Goa Trip 2026').
+    Allows for scoping expenses to specific dates and titles.
+    """
+    # Foreign Key (FK) to the parent Group
+    group = models.ForeignKey(
+        'Group', 
+        on_delete=models.CASCADE, 
+        related_name='trips'
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    
+    # Metadata for the trip duration
+    start_date = models.DateField(null=True, blank=True)
+    end_date = models.DateField(null=True, blank=True)
+    
+    # Each trip can have its own base currency
+    currency = models.CharField(max_length=3, default='INR')
+    
+    # Status to track if the trip is currently ongoing
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.group.name})"
