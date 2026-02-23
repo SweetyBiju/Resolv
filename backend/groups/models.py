@@ -19,6 +19,12 @@ class Group(models.Model):
         related_name='admin_groups'
     )
 
+    members = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, 
+        related_name='joined_groups',
+        blank=True
+    )
+
     def save(self, *args, **kwargs):
         # Auto-generate a unique 8-character code if it doesn't exist
         if not self.invite_code:
@@ -58,3 +64,35 @@ class Trip(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.group.name})"
+    
+
+
+
+
+class Budget(models.Model):
+    """Shared group budgets with proactive utilization tracking.
+    Helps in financial discipline for group events or trips.
+    """
+    group = models.ForeignKey(
+        'Group', 
+        on_delete=models.CASCADE, 
+        related_name='budgets'
+    )
+    # Budget can be scoped to a specific Trip or the whole Group [cite: 86]
+    trip = models.ForeignKey(
+        'Trip', 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True, 
+        related_name='budgets'
+    )
+    category = models.CharField(max_length=50, default='General') # e.g., Food, Travel
+    amount_limit = models.DecimalField(max_digits=12, decimal_places=2)
+    
+    # Flags for Celery tasks to send one-time alerts at specific thresholds [cite: 86]
+    alert_75_sent = models.BooleanField(default=False)
+    alert_90_sent = models.BooleanField(default=False)
+    alert_100_sent = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"Budget: {self.category} for {self.group.name}"

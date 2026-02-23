@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Group, Trip
+from .models import Group, Trip, Budget
 
 class TripInline(admin.TabularInline):
     """Shows all trips belonging to a group inside the group page."""
@@ -16,3 +16,8 @@ class GroupAdmin(admin.ModelAdmin):
 class TripAdmin(admin.ModelAdmin):
     list_display = ('title', 'group', 'start_date', 'end_date', 'is_active')
     list_filter = ('is_active', 'group')
+
+
+@admin.register(Budget)
+class BudgetAdmin(admin.ModelAdmin):
+    list_display = ('group', 'category', 'amount_limit', 'alert_100_sent')
