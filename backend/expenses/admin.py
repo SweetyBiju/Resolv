@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Expense, ExpenseItem, ExpenseSplit, Settlement, RecurringExpense
+from .models import Expense, ExpenseItem, ExpenseSplit, Settlement, RecurringExpense,ApprovalWorkflow
 
 class ExpenseItemInline(admin.TabularInline):
     """Allows adding grocery items directly inside the Expense page."""
@@ -35,6 +35,12 @@ class RecurringExpenseAdmin(admin.ModelAdmin):
     """Manages automated subscription and rent templates."""
     list_display = ('title', 'amount', 'interval', 'next_occurrence', 'is_active')
     list_filter = ('interval', 'is_active')
+
+
+@admin.register(ApprovalWorkflow)
+class ApprovalAdmin(admin.ModelAdmin):
+    list_display = ('expense', 'is_approved', 'created_at')
+
 
 # Registering these individually as well for direct management
 admin.site.register(ExpenseItem)

@@ -148,3 +148,31 @@ class RecurringExpense(models.Model):
 
     def __str__(self):
         return f"Recurring: {self.title} ({self.interval})"
+
+
+
+
+class ApprovalWorkflow(models.Model):
+    """
+     Controls for transactions above a price threshold.
+    Ensures group consensus for large purchases.
+    """
+    # One-to-One relationship: Each expense has at most one approval status
+    expense = models.OneToOneField(
+        'Expense', 
+        on_delete=models.CASCADE, 
+        related_name='approval'
+    )
+    is_approved = models.BooleanField(default=False)
+    # List of users who have approved this specific expense
+    approvers = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, 
+        related_name='approved_expenses',
+        blank=True
+    )
+    # Metadata for the audit trail [cite: 67]
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Approval for {self.expense.title} - Status: {self.is_approved}"
