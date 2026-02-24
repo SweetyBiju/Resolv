@@ -18,3 +18,10 @@ class User(AbstractUser):
 
     def __str__(self):
         return self.username
+    
+
+class ReliabilityHistory(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='score_history')
+    score = models.DecimalField(max_digits=5, decimal_places=2)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    reason = models.CharField(max_length=255) # e.g., "Settled debt on time"
