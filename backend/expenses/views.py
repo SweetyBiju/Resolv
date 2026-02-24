@@ -12,6 +12,14 @@ from django.db.models import Sum
 
 from .utils import simplify_debts
 
+
+
+from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
+from .models import Settlement
+from users.models import ReliabilityHistory 
+from .serializers import SettlementSerializer 
+
 # backend/expenses/views.py
 
 class ExpenseViewSet(viewsets.ModelViewSet):
@@ -95,3 +103,60 @@ class ExpenseViewSet(viewsets.ModelViewSet):
             "group_id": group_id,
             "suggested_payments": settlements
         })
+
+    
+
+
+class SettlementViewSet(viewsets.ModelViewSet):
+    queryset = Settlement.objects.all()
+    serializer_class = SettlementSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        """
+        Payer initiates a settlement. Status defaults to 'PENDING'.
+        """
+        serializer.save(payer=self.request.user)
+
+    @action(detail=True, methods=['post'], url_path='confirm')
+    def confirm_settlement(self, request, pk=None):
+        """
+        Receiver confirms they got the money. This triggers the score boost.
+       
+        """
+        settlement = self.get_object()
+
+        # SECURITY: Only the person receiving the money can confirm it
+        if settlement.receiver != request.user:
+            return Response(
+                {"error": "Only the receiver can confirm this payment."}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if settlement.status == 'CONFIRMED':
+            return Response({"message": "Already confirmed."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 1. Update Settlement Status
+        settlement.status = 'CONFIRMED'
+        settlement.save()
+
+        # 2. Boost Payer's Reliability Score
+        # Mathematical logic: S_new = min(100.0, S_old + 0.5)
+        payer = settlement.payer
+        current_score = float(payer.reliability_score)
+        new_score = min(100.0, current_score + 0.5)
+        payer.reliability_score = new_score
+        payer.save()
+
+        # 3. Record History for the Profile Line Graph
+        ReliabilityHistory.objects.create(
+            user=payer,
+            score=new_score,
+            reason=f"Successfully settled debt with {request.user.username}"
+        )
+
+        return Response({
+            "status": "confirmed",
+            "new_reliability_score": new_score,
+            "message": "Confetti time!" # Frontend will look for this
+        }, status=status.HTTP_200_OK)

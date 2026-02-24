@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from decimal import Decimal
-from .models import Expense, ExpenseSplit, ExpenseItem
+from .models import Expense, ExpenseSplit, ExpenseItem, Settlement
 
 class ExpenseSplitSerializer(serializers.ModelSerializer):
     username = serializers.ReadOnlyField(source='user.username')
@@ -52,3 +52,21 @@ class ExpenseSerializer(serializers.ModelSerializer):
                 )
 
         return data
+    
+
+
+
+
+
+
+
+
+
+class SettlementSerializer(serializers.ModelSerializer):
+    payer_username = serializers.ReadOnlyField(source='payer.username')
+    receiver_username = serializers.ReadOnlyField(source='receiver.username')
+
+    class Meta:
+        model = Settlement
+        fields = ['id', 'group', 'payer', 'payer_username', 'receiver', 'receiver_username', 'amount', 'status', 'created_at']
+        read_only_fields = ['payer', 'status']
