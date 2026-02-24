@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Notification, ActivityLog
+from .models import Notification, ActivityLog, Dispute
 
 @admin.register(Notification)
 class NotificationAdmin(admin.ModelAdmin):
@@ -30,3 +30,10 @@ class ActivityLogAdmin(admin.ModelAdmin):
     # Disabling the ability to manually add logs via Admin for security
     def has_add_permission(self, request):
         return False
+    
+
+
+@admin.register(Dispute)
+class DisputeAdmin(admin.ModelAdmin):
+    list_display = ('expense', 'raised_by', 'status', 'created_at')
+    list_filter = ('status',)
