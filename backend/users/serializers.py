@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import User
+import re
 
 class UserSerializer(serializers.ModelSerializer):
     """
@@ -8,12 +9,22 @@ class UserSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'reliability_score', 'upi_id', 'currency_preference']
-        # Ensure password is not returned in API responses for security
+        # Added avatar_url so DRF allows it through validation
+        fields = ['id', 'username', 'email', 'password', 'reliability_score', 'upi_id', 'currency_preference', 'avatar_url']
+        
         extra_kwargs = {
             'password': {'write_only': True},
-            'reliability_score': {'read_only': True} # Score is managed by the system, not the user
+            'reliability_score': {'read_only': True} 
         }
+
+    def validate_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError("Password must be at least 8 characters long.")
+        if not re.search(r'\d', value):
+            raise serializers.ValidationError("Password must contain at least one number.")
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', value):
+            raise serializers.ValidationError("Password must contain at least one symbol.")
+        return value
 
     def create(self, validated_data):
         """
@@ -24,6 +35,17 @@ class UserSerializer(serializers.ModelSerializer):
             email=validated_data.get('email', ''),
             password=validated_data['password'],
             upi_id=validated_data.get('upi_id', ''),
-            currency_preference=validated_data.get('currency_preference', 'INR')
+            currency_preference=validated_data.get('currency_preference', 'INR'),
+            avatar_url=validated_data.get('avatar_url', '')
         )
         return user
+    
+    def update(self, instance, validated_data):
+        """
+        Intercepts password updates to ensure they are hashed.
+        """
+        if 'password' in validated_data:
+            password = validated_data.pop('password')
+            instance.set_password(password)
+        
+        return super().update(instance, validated_data)

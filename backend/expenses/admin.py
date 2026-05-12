@@ -26,9 +26,9 @@ class ExpenseAdmin(admin.ModelAdmin):
 @admin.register(Settlement)
 class SettlementAdmin(admin.ModelAdmin):
     """Tracks direct P2P payments between users."""
-    list_display = ('debtor', 'creditor', 'amount', 'currency', 'is_confirmed', 'created_at')
-    list_filter = ('is_confirmed', 'currency')
-    search_fields = ('debtor__username', 'creditor__username')
+    list_display = ('payer', 'receiver', 'amount', 'currency', 'status', 'created_at')
+    list_filter = ('status', 'currency')
+    search_fields = ('payer__username', 'receiverr__username')
 
 @admin.register(RecurringExpense)
 class RecurringExpenseAdmin(admin.ModelAdmin):

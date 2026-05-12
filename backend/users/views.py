@@ -4,7 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from .serializers import UserSerializer
-from .models import ReliabilityHistory 
+from .models import ReliabilityHistory
+from rest_framework.throttling import AnonRateThrottle 
 
 class RegisterView(generics.CreateAPIView):
     """
@@ -13,6 +14,7 @@ class RegisterView(generics.CreateAPIView):
     """
     serializer_class = UserSerializer
     permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle] # ADDED: Rate limiting for anonymous users
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -24,7 +26,9 @@ class RegisterView(generics.CreateAPIView):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# FIX: Switch to GenericViewSet to support both Profile and Score History
+#
+# 
+#  Switch to GenericViewSet to support both Profile and Score History
 class UserProfileViewSet(viewsets.GenericViewSet):
     """
     Combined ViewSet to handle Profile retrieval/updates 
@@ -55,5 +59,19 @@ class UserProfileViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'], url_path='score-history')
     def get_score_history(self, request):
         history = ReliabilityHistory.objects.filter(user=request.user).order_by('timestamp')
-        data = [{"score": float(h.score), "date": h.timestamp.strftime("%Y-%m-%d")} for h in history]
+        data = [{"score": float(h.score), "date": h.timestamp.strftime("%Y-%m-%d"),"reason": h.reason} for h in history]
         return Response(data)
+    
+
+
+class UserMeView(generics.RetrieveUpdateAPIView):
+    """
+    Endpoint to retrieve and update the currently authenticated user's profile
+    based strictly on their JWT, without needing their user ID in the URL.
+    """
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        # Overrides the default lookup to simply return the user attached to the token
+        return self.request.user

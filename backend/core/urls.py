@@ -30,7 +30,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'), # Stay logged in
 
     path('api/users/', include('users.urls')),
-    path('api/expenses/', include('expenses.urls')),
+    path('api/', include('expenses.urls')),
     path('api/groups/', include('groups.urls')),
 
 ]

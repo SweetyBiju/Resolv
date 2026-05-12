@@ -2,6 +2,13 @@ from rest_framework import serializers
 from decimal import Decimal
 from .models import Expense, ExpenseSplit, ExpenseItem, Settlement
 
+
+class ExpenseItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ExpenseItem
+        fields = ['id', 'name', 'amount']
+
+
 class ExpenseSplitSerializer(serializers.ModelSerializer):
     username = serializers.ReadOnlyField(source='user.username')
     
@@ -11,16 +18,17 @@ class ExpenseSplitSerializer(serializers.ModelSerializer):
 
 class ExpenseSerializer(serializers.ModelSerializer):
     splits = ExpenseSplitSerializer(many=True, read_only=True)
+    items = ExpenseItemSerializer(many=True, read_only=True)
     paid_by_username = serializers.ReadOnlyField(source='paid_by.username')
 
     class Meta:
         model = Expense
         fields = [
-            'id', 'title', 'amount', 'currency', 'paid_by', 
+            'id', 'title', 'amount', 'currency','category', 'paid_by', 
             'paid_by_username', 'group', 'trip', 'split_type', 
-            'splits', 'date'
+            'splits','items', 'date'
         ]
-        # Automate paid_by so the user doesn't have to provide it manually
+
         read_only_fields = ['paid_by']
 
 

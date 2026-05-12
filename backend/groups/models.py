@@ -3,37 +3,38 @@ from django.db import models
 from django.conf import settings
 
 class Group(models.Model):
-    """
-    Represents a collection of users sharing expenses.
-    Uses an invite-code system for privacy and easy onboarding.
-    """
     name = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    # Unique code generated on creation for group joins
     invite_code = models.CharField(max_length=10, unique=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    # The creator of the group
     admin = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.CASCADE, 
         related_name='admin_groups'
     )
-
     members = models.ManyToManyField(
         settings.AUTH_USER_MODEL, 
         related_name='joined_groups',
         blank=True
     )
+    # soft-delete parity
+    is_active = models.BooleanField(default=True)
 
     def save(self, *args, **kwargs):
-        # Auto-generate a unique 8-character code if it doesn't exist
+        # Centralized and unique 8-character invite code generation
         if not self.invite_code:
-            self.invite_code = str(uuid.uuid4())[:8].upper()
+            self.invite_code = uuid.uuid4().hex[:8].upper()
+            while Group.objects.filter(invite_code=self.invite_code).exists():
+                self.invite_code = uuid.uuid4().hex[:8].upper()
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # Override default delete for atomic soft-delete
+        self.is_active = False
+        self.save()
 
     def __str__(self):
         return self.name
-    
 
 
 

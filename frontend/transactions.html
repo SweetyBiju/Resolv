@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resolv | Global Activity</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    boxShadow: { 
+                        'comic': '6px 6px 0px 0px rgba(0,0,0,1)',
+                        'comic-sm': '3px 3px 0px 0px rgba(0,0,0,1)',
+                        'comic-hover': '2px 2px 0px 0px rgba(0,0,0,1)'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 12px; }
+        ::-webkit-scrollbar-track { background: #eff6ff; border-left: 4px solid #000; }
+        ::-webkit-scrollbar-thumb { background: #000; border: 2px solid #eff6ff; }
+    </style>
+</head>
+<body class="bg-blue-50 text-black min-h-screen">
+    <div class="flex flex-col md:flex-row min-h-screen">
+        
+        <nav class="w-full md:w-64 bg-white border-b-4 md:border-b-0 md:border-r-4 border-black p-6 flex flex-col sticky top-0 md:h-screen z-20 flex-shrink-0 overflow-y-auto">
+            <h1 class="text-4xl font-black uppercase italic mb-10 tracking-tighter">Resolv<span class="text-purple-400">.</span></h1>
+            <div class="space-y-4 flex-grow">
+                <a href="dashboard.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
+                    <i data-lucide="layout-dashboard" stroke-width="4"></i> Dashboard
+                </a>
+                <a href="groups.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
+                    <i data-lucide="users" stroke-width="4"></i> Groups
+                </a>
+                <a href="transactions.html" class="flex items-center gap-3 p-3 bg-pink-400 border-4 border-black shadow-comic font-black uppercase text-sm transition-all">
+                    <i data-lucide="arrow-left-right" stroke-width="4"></i> Activity
+                </a>
+                <a href="profile.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
+                    <i data-lucide="user" stroke-width="4"></i> Profile
+                </a>
+            </div>
+            <button id="logout-btn" class="mt-8 flex items-center gap-3 p-3 border-4 border-black hover:bg-pink-400 font-black uppercase text-sm transition-all">
+                <i data-lucide="log-out" stroke-width="4"></i> Log Out
+            </button>
+        </nav>
+
+        <main class="flex-grow p-6 md:p-12 overflow-y-auto w-full">
+            <header class="mb-10">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-6">
+                    <div>
+                        <h2 class="text-5xl font-black uppercase tracking-tighter italic">Activity</h2>
+                        <p class="font-bold text-gray-500 uppercase tracking-widest text-xs mt-2">Your Financial Diary</p>
+                    </div>
+                    
+                    <div class="w-full md:w-auto flex items-center border-4 border-black bg-white shadow-comic-sm">
+                        <i data-lucide="search" stroke-width="3" class="w-5 h-5 ml-3 text-gray-400"></i>
+                        <input type="text" id="search-input" placeholder="SEARCH DIARY..." class="p-3 font-black uppercase outline-none w-full md:w-64 bg-transparent placeholder-gray-400">
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2" id="filter-container">
+                    <button class="filter-btn active-filter bg-black text-white px-4 py-2 font-black uppercase text-xs border-4 border-black shadow-comic-sm" data-filter="ALL">All</button>
+                    <button class="filter-btn bg-white px-4 py-2 font-black uppercase text-xs border-4 border-black hover:bg-yellow-300 transition-colors" data-filter="YOU_PAID">You Paid</button>
+                    <button class="filter-btn bg-white px-4 py-2 font-black uppercase text-xs border-4 border-black hover:bg-yellow-300 transition-colors" data-filter="YOU_OWE">You Owe</button>
+                    <button class="filter-btn bg-white px-4 py-2 font-black uppercase text-xs border-4 border-black hover:bg-yellow-300 transition-colors" data-filter="SETTLEMENTS">Settlements</button>
+                </div>
+            </header>
+
+            <div id="alert-banner" class="hidden mb-6 border-4 border-black p-4 font-black uppercase text-sm shadow-comic"></div>
+
+            <div class="max-w-4xl space-y-6" id="activity-feed">
+                <div class="animate-pulse bg-slate-200 border-4 border-black h-24 shadow-comic"></div>
+                <div class="animate-pulse bg-slate-200 border-4 border-black h-24 shadow-comic"></div>
+                <div class="animate-pulse bg-slate-200 border-4 border-black h-24 shadow-comic"></div>
+            </div>
+
+            <div class="max-w-4xl mt-8 text-center hidden" id="load-more-container">
+                <button id="load-more-btn" class="bg-white border-4 border-black px-8 py-3 font-black uppercase text-sm shadow-comic hover:-translate-y-1 active:translate-y-1 active:shadow-none transition-all">
+                    Load Older Activity ↓
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <script type="module">
+        import { api } from './js/core/api.js';
+        import { auth } from './js/core/auth.js';
+        import { utils } from './js/core/utils.js';
+
+        // --- STATE ---
+        const State = {
+            currentUser: null,
+            groups: [], // Mapping group IDs to names
+            allItems: [], // Merged raw data
+            filteredItems: [], // Data after search & filter
+            currentFilter: 'ALL',
+            searchQuery: '',
+            page: 1,
+            itemsPerPage: 10
+        };
+
+        // --- INIT ---
+        window.addEventListener('DOMContentLoaded', () => {
+            auth.checkAuthAndRedirect();
+            lucide.createIcons();
+            bindEvents();
+            loadData();
+        });
+
+        // --- DATA LAYER ---
+        async function loadData() {
+            try {
+                // Fetch everything in parallel
+                const [user, groups, expenses, settlements] = await Promise.all([
+                    api.request('/users/me/'),
+                    api.request('/groups/'),
+                    api.request('/expenses/'),
+                    api.request('/settlements/')
+                ]);
+
+                State.currentUser = user;
+                State.groups = groups;
+
+                // Normalize and Merge
+                const normalizedExpenses = expenses.map(e => ({ ...e, _type: 'expense', _sortDate: new Date(e.date || e.created_at) }));
+                const normalizedSettlements = settlements.map(s => ({ ...s, _type: 'settlement', _sortDate: new Date(s.created_at) }));
+                
+                State.allItems = [...normalizedExpenses, ...normalizedSettlements].sort((a, b) => b._sortDate - a._sortDate);
+                
+                applyFilters();
+
+            } catch (err) {
+                console.error(err);
+                showAlert('Failed to load activity diary. Check connection.', 'error');
+            }
+        }
+
+        // --- LOGIC ---
+        function applyFilters() {
+            let result = State.allItems;
+
+            // 1. Tab Filter
+            if (State.currentFilter === 'YOU_PAID') {
+                result = result.filter(i => i._type === 'expense' && String(i.paid_by) === String(State.currentUser.id));
+            } else if (State.currentFilter === 'YOU_OWE') {
+                result = result.filter(i => {
+                    if (i._type !== 'expense') return false;
+                    const iPaid = String(i.paid_by) === String(State.currentUser.id);
+                    const mySplit = (i.splits || []).find(s => String(s.user) === String(State.currentUser.id));
+                    const myShare = mySplit ? parseFloat(mySplit.amount_owed) : 0;
+                    return !iPaid && myShare > 0;
+                });
+            } else if (State.currentFilter === 'SETTLEMENTS') {
+                result = result.filter(i => i._type === 'settlement');
+            }
+
+            // 2. Search Filter
+            if (State.searchQuery) {
+                const q = State.searchQuery.toLowerCase();
+                result = result.filter(i => {
+                    if (i._type === 'expense') {
+                        return i.title.toLowerCase().includes(q) || (i.paid_by_username && i.paid_by_username.toLowerCase().includes(q));
+                    } else {
+                        return (i.payer_username && i.payer_username.toLowerCase().includes(q)) || 
+                               (i.receiver_username && i.receiver_username.toLowerCase().includes(q));
+                    }
+                });
+            }
+
+            State.filteredItems = result;
+            State.page = 1; // Reset pagination on new filter
+            renderFeed();
+        }
+
+        function getGroupName(groupId) {
+            const g = State.groups.find(x => String(x.id) === String(groupId));
+            return g ? g.name : 'Unknown Squad';
+        }
+
+        // --- RENDERER ---
+        function renderFeed() {
+            const container = document.getElementById('activity-feed');
+            const itemsToShow = State.filteredItems.slice(0, State.page * State.itemsPerPage);
+
+            if (itemsToShow.length === 0) {
+                container.innerHTML = `
+                    <div class="border-4 border-black border-dashed p-12 text-center bg-white shadow-comic">
+                        <p class="font-black uppercase text-lg tracking-widest text-gray-400">No Activity Found.</p>
+                    </div>`;
+                document.getElementById('load-more-container').classList.add('hidden');
+                return;
+            }
+
+            // Group by Month
+            const grouped = {};
+            itemsToShow.forEach(item => {
+                const month = item._sortDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }).toUpperCase();
+                if (!grouped[month]) grouped[month] = [];
+                grouped[month].push(item);
+            });
+
+            let html = '';
+            for (const [month, items] of Object.entries(grouped)) {
+                html += `
+                    <div class="flex items-center gap-4 mb-4 mt-8 first:mt-0">
+                        <span class="font-black uppercase text-xs tracking-widest text-gray-500 whitespace-nowrap">${month}</span>
+                        <div class="flex-grow border-t-2 border-dashed border-black"></div>
+                    </div>`;
+                
+                items.forEach(item => {
+                    if (item._type === 'expense') html += renderExpenseCard(item);
+                    else html += renderSettlementCard(item);
+                });
+            }
+
+            container.innerHTML = html;
+            lucide.createIcons();
+
+            // Pagination Controls
+            const loadMoreContainer = document.getElementById('load-more-container');
+            if (State.filteredItems.length > itemsToShow.length) {
+                loadMoreContainer.classList.remove('hidden');
+            } else {
+                loadMoreContainer.classList.add('hidden');
+            }
+        }
+
+        function renderExpenseCard(exp) {
+            const iPaid = String(exp.paid_by) === String(State.currentUser.id);
+            const mySplit = (exp.splits || []).find(s => String(s.user) === String(State.currentUser.id));
+            const myShare = mySplit ? parseFloat(mySplit.amount_owed) : 0;
+            
+            let statusHtml = `<span class="text-gray-400 text-xs font-black uppercase block">Not Involved</span>`;
+            if (iPaid) {
+                const lent = parseFloat(exp.amount) - myShare;
+                statusHtml = `<p class="font-black text-[10px] uppercase text-gray-500 mb-1">You Lent</p><p class="text-xl md:text-2xl font-black text-blue-600">₹${lent.toFixed(2)}</p>`;
+            } else if (myShare > 0) {
+                statusHtml = `<p class="font-black text-[10px] uppercase text-gray-500 mb-1">You Owe</p><p class="text-xl md:text-2xl font-black text-red-600">₹${myShare.toFixed(2)}</p>`;
+            } else {
+                statusHtml = `<p class="font-black text-[10px] uppercase text-gray-500 mb-1">Total Bill</p><p class="text-xl md:text-2xl font-black text-black">₹${parseFloat(exp.amount).toFixed(2)}</p>`;
+            }
+
+            const iconMap = { 'FOOD': 'utensils', 'TRAVEL': 'car', 'HOUSING': 'home', 'ENTERTAINMENT': 'film', 'OTHER': 'receipt' };
+            const icon = iconMap[exp.category] || 'receipt';
+            const groupName = getGroupName(exp.group);
+
+            let splitsDetailHtml = (exp.splits || []).map(s => {
+                const isUser = String(s.user) === String(State.currentUser.id);
+                return `<div class="flex justify-between border-b-2 border-black border-dashed py-1 font-black text-[10px] uppercase"><span>${isUser ? 'YOU' : s.username}</span><span>₹${parseFloat(s.amount_owed).toFixed(2)}</span></div>`;
+            }).join('');
+
+            return `
+            <div class="bg-white border-4 border-black p-4 md:p-6 shadow-comic flex flex-col gap-4 hover:-translate-y-1 hover:shadow-comic-hover transition-all cursor-pointer group-card" onclick="toggleDetail('detail-${exp.id}')">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
+                    <div class="flex items-center gap-4 w-full md:w-auto">
+                        <div class="flex flex-col items-center justify-center bg-blue-50 border-2 border-black p-2 min-w-[48px] shrink-0">
+                            <span class="font-black text-lg leading-none">${exp._sortDate.getDate()}</span>
+                            <span class="font-black text-[8px] uppercase text-gray-500">${exp._sortDate.toLocaleDateString('en-US', {month: 'short'})}</span>
+                        </div>
+                        <div class="w-10 h-10 md:w-12 md:h-12 bg-pink-300 border-4 border-black flex items-center justify-center shrink-0">
+                            <i data-lucide="${icon}" stroke-width="3" class="w-5 h-5"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 class="font-black text-lg md:text-xl uppercase leading-none truncate">${exp.title}</h3>
+                            <div class="flex flex-wrap items-center gap-2 mt-2">
+                                <span class="bg-blue-300 border-2 border-black px-2 py-0.5 text-[8px] font-black uppercase tracking-widest">${groupName}</span>
+                                <span class="font-bold text-[8px] md:text-[10px] uppercase text-gray-500">PAID BY ${iPaid ? 'YOU' : exp.paid_by_username}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-left md:text-right border-t-2 border-dashed border-gray-200 pt-2 md:pt-0 md:border-t-0 w-full md:w-auto">
+                        ${statusHtml}
+                    </div>
+                </div>
+                
+                <div id="detail-${exp.id}" class="hidden mt-2 pt-4 border-t-4 border-black border-dashed cursor-default" onclick="event.stopPropagation()">
+                    <div class="bg-slate-50 border-2 border-black p-4">
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="font-black uppercase text-xs text-gray-500">SPLIT: ${exp.split_type}</span>
+                            <span class="font-black uppercase text-xs text-gray-500">TOTAL: ₹${parseFloat(exp.amount).toFixed(2)}</span>
+                        </div>
+                        <div class="space-y-1">
+                            ${splitsDetailHtml}
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        function renderSettlementCard(s) {
+            const iAmReceiver = String(s.receiver) === String(State.currentUser.id);
+            const iAmPayer = String(s.payer) === String(State.currentUser.id);
+            const isPending = s.status === 'PENDING' || s.status === 'pending';
+            const groupName = getGroupName(s.group);
+
+            let label = iAmReceiver ? 'Received' : (iAmPayer ? 'Sent' : 'Settlement');
+            let color = iAmReceiver ? 'text-green-600' : 'text-black';
+
+            let actionBtn = '';
+            if (isPending && iAmReceiver) {
+                actionBtn = `<button onclick="confirmSettlement(${s.id}, event)" class="mt-2 w-full md:w-auto bg-black text-white px-4 py-2 font-black uppercase text-[10px] hover:bg-gray-800 active:translate-y-1 transition-all shadow-comic-sm">Confirm Receipt ✓</button>`;
+            }
+
+            return `
+            <div class="${isPending ? 'bg-white' : 'bg-yellow-300'} border-4 border-black p-4 md:p-6 shadow-comic flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:-translate-y-1 transition-transform">
+                <div class="flex items-center gap-4 w-full md:w-auto">
+                    <div class="w-10 h-10 md:w-12 md:h-12 bg-white border-4 border-black flex items-center justify-center rounded-full shrink-0">
+                        <i data-lucide="${isPending ? 'clock' : 'check'}" stroke-width="4" class="${isPending ? 'text-gray-400' : 'text-black'}"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h3 class="font-black text-lg md:text-xl uppercase leading-none truncate">${s.payer_username} paid ${s.receiver_username}</h3>
+                        <div class="flex items-center gap-2 mt-2">
+                            <span class="bg-purple-300 border-2 border-black px-2 py-0.5 text-[8px] font-black uppercase tracking-widest">${groupName}</span>
+                            <span class="${isPending ? 'bg-yellow-100 text-yellow-700' : 'bg-lime-300 text-black'} border-2 border-black px-2 py-0.5 text-[8px] font-black uppercase tracking-widest">${s.status}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="text-left md:text-right w-full md:w-auto flex flex-col items-start md:items-end border-t-2 border-dashed border-gray-200 md:border-t-0 pt-3 md:pt-0">
+                    <p class="font-black text-[10px] uppercase text-gray-800 mb-1">${label}</p>
+                    <p class="text-xl md:text-2xl font-black ${color}">₹${parseFloat(s.amount).toFixed(2)}</p>
+                    ${actionBtn}
+                </div>
+            </div>`;
+        }
+
+        // --- INTERACTIVITY ---
+        function bindEvents() {
+            // Logout
+            const loBtn = document.getElementById('logout-btn');
+            if(loBtn) loBtn.addEventListener('click', () => auth.logout());
+
+            // Tab Filters
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.filter-btn').forEach(b => {
+                        b.classList.remove('bg-black', 'text-white', 'active-filter', 'shadow-comic-sm');
+                        b.classList.add('bg-white', 'text-black');
+                    });
+                    e.target.classList.remove('bg-white', 'text-black');
+                    e.target.classList.add('bg-black', 'text-white', 'active-filter', 'shadow-comic-sm');
+                    
+                    State.currentFilter = e.target.dataset.filter;
+                    applyFilters();
+                });
+            });
+
+            // Search Bar (Debounced)
+            let searchTimeout;
+            document.getElementById('search-input').addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    State.searchQuery = e.target.value.trim();
+                    applyFilters();
+                }, 300);
+            });
+
+            // Pagination Load More
+            document.getElementById('load-more-btn').addEventListener('click', () => {
+                State.page += 1;
+                renderFeed();
+            });
+        }
+
+        // Global functions for inline HTML events
+        window.toggleDetail = (id) => {
+            const el = document.getElementById(id);
+            if(el) el.classList.toggle('hidden');
+        };
+
+        window.confirmSettlement = async (id, event) => {
+            event.stopPropagation(); // Prevent drawer expansion if applicable
+            event.currentTarget.disabled = true;
+            event.currentTarget.innerText = 'Confirming...';
+            
+            try {
+                // Hits the confirm_settlement endpoint from your views.py
+                await api.request(`/settlements/${id}/confirm_settlement/`, { method: 'POST' });
+                confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                showAlert('Payment Confirmed!', 'success');
+                loadData(); // Re-fetch to update feed status
+            } catch(err) {
+                showAlert(err.message || 'Failed to confirm.', 'error');
+                event.currentTarget.disabled = false;
+                event.currentTarget.innerText = 'Confirm Receipt ✓';
+            }
+        };
+
+        function showAlert(message, type) {
+            const banner = document.getElementById('alert-banner');
+            banner.innerText = message;
+            banner.classList.remove('hidden', 'bg-lime-300', 'bg-pink-400');
+            banner.classList.add(type === 'success' ? 'bg-lime-300' : 'bg-pink-400');
+            banner.classList.remove('hidden');
+            setTimeout(() => banner.classList.add('hidden'), 4000);
+        }
+    </script>
+</body>
+</html>

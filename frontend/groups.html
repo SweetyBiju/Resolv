@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resolv | My Groups</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    boxShadow: { 'comic': '6px 6px 0px 0px rgba(0,0,0,1)', 'comic-sm': '3px 3px 0px 0px rgba(0,0,0,1)' }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-blue-50 text-black min-h-screen">
+    <div class="flex flex-col md:flex-row min-h-screen">
+        
+        <nav class="w-full md:w-64 bg-white border-b-4 md:border-b-0 md:border-r-4 border-black p-6 flex flex-col z-20 sticky top-0 md:h-screen">
+            <h1 class="text-4xl font-black uppercase italic mb-10 tracking-tighter">Resolv<span class="text-purple-400">.</span></h1>
+            <div class="space-y-4 flex-grow">
+                <a href="dashboard.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
+                    <i data-lucide="layout-dashboard" stroke-width="4"></i> Dashboard
+                </a>
+                <a href="groups.html" class="flex items-center gap-3 p-3 bg-lime-300 border-4 border-black shadow-comic font-black uppercase text-sm transition-all">
+                    <i data-lucide="users" stroke-width="4"></i> Groups
+                </a>
+                <a href="transactions.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
+                    <i data-lucide="arrow-left-right" stroke-width="4"></i> Activity
+                </a>
+                <a href="profile.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
+                    <i data-lucide="user" stroke-width="4"></i> Profile
+                </a>
+            </div>
+            <button id="logout-btn" class="mt-auto flex items-center gap-3 p-3 border-4 border-black hover:bg-pink-400 font-black uppercase text-sm transition-all">
+                <i data-lucide="log-out" stroke-width="4"></i> Log Out
+            </button>
+        </nav>
+
+        <main class="flex-grow p-6 md:p-12 overflow-y-auto">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+                <h2 class="text-5xl font-black uppercase tracking-tighter italic">Your Squads</h2>
+                
+                <form id="join-form" class="flex w-full md:w-auto border-4 border-black shadow-comic">
+                    <input type="text" id="invite-code-input" placeholder="INVITE CODE" required maxlength="8"
+                        class="p-3 font-black uppercase tracking-widest outline-none w-full md:w-48 bg-white focus:bg-yellow-50">
+                    <button type="submit" class="bg-lime-400 border-l-4 border-black px-6 font-black uppercase text-sm hover:bg-lime-300 active:bg-lime-500 transition-colors">
+                        Join
+                    </button>
+                </form>
+            </div>
+
+            <div id="alert-banner" class="hidden mb-8 border-4 border-black p-4 font-black uppercase text-sm shadow-comic"></div>
+
+            <div id="groups-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div class="animate-pulse bg-slate-200 border-4 border-black h-48 shadow-comic"></div>
+                <div class="animate-pulse bg-slate-200 border-4 border-black h-48 shadow-comic"></div>
+                <div class="animate-pulse bg-slate-200 border-4 border-black h-48 shadow-comic"></div>
+            </div>
+
+            <button id="create-group-fab" class="fixed bottom-10 right-10 bg-purple-400 border-4 border-black p-5 shadow-comic hover:-translate-y-1 transition-all active:translate-y-1 active:shadow-none z-30">
+                <i data-lucide="plus" stroke-width="4" class="w-8 h-8"></i>
+            </button>
+        </main>
+    </div>
+
+    <script type="module">
+        import { api } from './js/core/api.js';
+        import { auth } from './js/core/auth.js';
+        import { ui } from './js/core/ui.js';
+        import { utils } from './js/core/utils.js';
+
+        lucide.createIcons();
+        auth.checkAuthAndRedirect();
+
+        document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
+
+        const avatarColors = ['bg-pink-400', 'bg-yellow-300', 'bg-lime-400', 'bg-blue-400', 'bg-purple-400'];
+
+        async function loadGroupsData() {
+            try {
+                const [user, groups, expenses, settlements] = await Promise.all([
+                    api.request('/users/me/'),
+                    api.getGroups(),
+                    api.getExpenses(),
+                    api.request('/settlements/')
+                ]);
+
+                renderGroups(user.id, groups, expenses, settlements);
+            } catch (err) {
+                console.error("Failed to load groups data", err);
+                showAlert("Failed to load your squads. Check server connection.", "error");
+            }
+        }
+
+        // FIXED: Settlement calculation logic
+        function computeGroupBalance(groupId, currentUserId, expenses, settlements) {
+            let groupNet = 0;
+            const currId = String(currentUserId);
+
+            const groupExpenses = expenses.filter(e => e.group === groupId);
+            
+            groupExpenses.forEach(exp => {
+                const payerId = String(exp.paid_by);
+                if (exp.splits && Array.isArray(exp.splits)) {
+                    exp.splits.forEach(split => {
+                        const owerId = String(split.user);
+                        const amount = parseFloat(split.amount_owed || 0);
+
+                        if (payerId === currId && owerId !== currId) {
+                            groupNet += amount; 
+                        } else if (owerId === currId && payerId !== currId) {
+                            groupNet -= amount; 
+                        }
+                    });
+                }
+            });
+
+            // FIXED: Checking for both lowercase and uppercase 'CONFIRMED'
+            const groupSettlements = settlements.filter(s => 
+                (s.status === 'CONFIRMED' || s.status === 'confirmed') && s.group === groupId
+            );
+            
+            groupSettlements.forEach(settlement => {
+                const amount = parseFloat(settlement.amount || 0);
+                const payerId = String(settlement.payer);
+                const receiverId = String(settlement.receiver);
+
+                if (receiverId === currId && payerId !== currId) {
+                    groupNet -= amount;
+                } else if (payerId === currId && receiverId !== currId) {
+                    groupNet += amount;
+                }
+            });
+
+            return groupNet;
+        }
+
+        function renderGroups(currentUserId, groups, expenses, settlements) {
+            const container = document.getElementById('groups-container');
+            if (!groups || groups.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-20 font-black uppercase text-gray-400 border-4 border-dashed border-black">No squads yet. Create one or join with a code!</div>`;
+                return;
+            }
+
+            container.innerHTML = groups.map(group => {
+                const members = group.members || [];
+                const memberCount = members.length;
+                
+                const balance = computeGroupBalance(group.id, currentUserId, expenses, settlements);
+                let balanceHTML = '';
+
+                // FIXED: Aesthetic colors aligned with group-detail.html
+                if (balance > 0.01) {
+                    // You are owed money
+                    balanceHTML = `
+                        <div class="mt-4 bg-blue-50 border-2 border-black p-2 inline-block shadow-comic-sm">
+                            <span class="font-black text-[10px] uppercase block text-gray-600">You Lent</span>
+                            <span class="font-black text-blue-600 text-lg leading-none">${utils.formatCurrency(Math.abs(balance))}</span>
+                        </div>
+                    `;
+                } else if (balance < -0.01) {
+                    // You owe money
+                    balanceHTML = `
+                        <div class="mt-4 bg-pink-50 border-2 border-black p-2 inline-block shadow-comic-sm">
+                            <span class="font-black text-[10px] uppercase block text-gray-600">You Owe</span>
+                            <span class="font-black text-red-600 text-lg leading-none">${utils.formatCurrency(Math.abs(balance))}</span>
+                        </div>
+                    `;
+                } else {
+                    // Settled up
+                    balanceHTML = `
+                        <div class="mt-4 bg-lime-50 border-2 border-black p-2 inline-block shadow-comic-sm">
+                            <span class="font-black text-[10px] uppercase block text-gray-600">Status</span>
+                            <span class="font-black text-green-600 text-lg leading-none">Settled ✓</span>
+                        </div>
+                    `;
+                }
+
+                let avatarsHTML = '';
+                const maxAvatars = 3;
+                members.slice(0, maxAvatars).forEach((member, idx) => {
+                    const initial = member.username ? member.username[0].toUpperCase() : '?';
+                    const color = avatarColors[idx % avatarColors.length];
+                    avatarsHTML += `<div class="w-8 h-8 rounded-full border-2 border-black ${color} flex items-center justify-center font-black text-xs">${initial}</div>`;
+                });
+                
+                if (memberCount > maxAvatars) {
+                    avatarsHTML += `<span class="text-[10px] font-black uppercase ml-2">+ ${memberCount - maxAvatars} more</span>`;
+                }
+
+                return `
+                    <div class="bg-white border-4 border-black shadow-comic p-6 flex flex-col justify-between hover:-translate-y-1 hover:shadow-lg transition-all cursor-pointer group" onclick="window.location.href='group-detail.html?id=${group.id}'">
+                        <div>
+                            <div class="flex justify-between items-start mb-4">
+                                <span class="bg-blue-300 border-2 border-black px-2 py-1 text-[10px] font-black uppercase tracking-widest">${group.invite_code || 'CODE'}</span>
+                                <i data-lucide="arrow-up-right" stroke-width="4" class="group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform"></i>
+                            </div>
+                            <h3 class="text-2xl font-black uppercase mb-1 leading-none truncate" title="${group.name}">${group.name}</h3>
+                            <p class="font-bold text-[10px] uppercase text-gray-500 tracking-widest">${memberCount} Members</p>
+                            ${balanceHTML}
+                        </div>
+                        <div class="mt-6 flex items-center">
+                            <div class="flex -space-x-3">
+                                ${avatarsHTML}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('join-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const codeInput = document.getElementById('invite-code-input');
+            const code = codeInput.value.trim().toUpperCase();
+            if(!code) return;
+            
+            utils.hapticFeedback('medium');
+            try {
+                const response = await api.request('/groups/join/', {
+                    method: 'POST',
+                    body: JSON.stringify({ invite_code: code })
+                });
+
+                if (response && response.group) {
+                    ui.fireConfetti();
+                    codeInput.value = '';
+                    showAlert(response.message || `Joined ${response.group.name}!`, "success");
+                    loadGroupsData(); 
+                }
+            } catch (err) {
+                console.error(err);
+                showAlert(err.message || "Invalid or inactive code.", "error");
+                utils.hapticFeedback('error');
+            }
+        });
+
+        document.getElementById('create-group-fab').addEventListener('click', () => {
+            ui.showModal(
+                "Create New Squad",
+                `
+                <div class="space-y-4">
+                    <p class="font-bold text-xs uppercase text-gray-500">You will be the admin.</p>
+                    <input id="new-group-name" type="text" placeholder="Squad Name (e.g. Goa Trip)" class="w-full border-4 border-black p-3 font-black uppercase outline-none focus:bg-yellow-50">
+                    <textarea id="new-group-desc" placeholder="Optional description..." class="w-full border-4 border-black p-3 font-bold text-sm outline-none focus:bg-yellow-50 resize-none h-24"></textarea>
+                </div>
+                `,
+                [
+                    { 
+                        label: "Create", 
+                        class: "bg-purple-400", 
+                        onClick: async () => {
+                            const name = document.getElementById('new-group-name').value;
+                            const desc = document.getElementById('new-group-desc').value;
+                            if (!name) return;
+
+                            utils.hapticFeedback('light');
+                            try {
+                                const response = await api.request('/groups/', {
+                                    method: 'POST',
+                                    body: JSON.stringify({ name: name, description: desc })
+                                });
+
+                                if (response) {
+                                    ui.hideModal();
+                                    ui.fireConfetti();
+                                    showAlert(`Created ${response.name}! Invite Code: ${response.invite_code}`, 'success');
+                                    loadGroupsData();
+                                }
+                            } catch (err) {
+                                console.error(err);
+                                alert('Failed to create squad.');
+                            }
+                        } 
+                    },
+                    {
+                        label: 'Cancel',
+                        class: 'bg-white',
+                        onClick: () => ui.hideModal()
+                    }
+                ]
+            );
+        });
+
+        function showAlert(message, type) {
+            const banner = document.getElementById('alert-banner');
+            banner.innerText = message;
+            banner.classList.remove('hidden', 'bg-lime-300', 'bg-pink-400');
+            banner.classList.add(type === 'success' ? 'bg-lime-300' : 'bg-pink-400');
+            banner.classList.remove('hidden');
+            setTimeout(() => { banner.classList.add('hidden'); }, 4000);
+        }
+
+        // Init
+        loadGroupsData();
+    </script>
+</body>
+</html>

@@ -11,14 +11,23 @@ class Expense(models.Model):
         ('EQUAL', 'Equal'),
         ('EXACT', 'Exact Amount'),
         ('PERCENT', 'Percentage'),
-        ('ITEM', 'Item-Based'), # New addition for granular grocery/bill splitting
+        ('ITEM', 'Item-Based'), 
+    ]
+
+    CATEGORY_CHOICES = [
+        ('FOOD', 'Food & Drink'),
+        ('TRAVEL', 'Travel'),
+        ('HOUSING', 'Housing'),
+        ('ENTERTAINMENT', 'Entertainment'),
+        ('OTHER', 'Other'),
     ]
 
     title = models.CharField(max_length=255)
     # Total amount of the bill
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     currency = models.CharField(max_length=3, default='INR')
-    
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='OTHER') # ADDED: For Analytics Dashboard
+
     # Foreign Key (FK) to the user who covered the bill
     paid_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
@@ -33,8 +42,6 @@ class Expense(models.Model):
         related_name='expenses'
     )
     
-    # Optional Foreign Key to a Trip for better organization (Phase 1.5 feature)
-    # Note: Ensure the Trip model is created in groups/models.py
     trip = models.ForeignKey(
         'groups.Trip', 
         on_delete=models.SET_NULL, 
@@ -47,6 +54,11 @@ class Expense(models.Model):
     receipt_url = models.URLField(max_length=500, blank=True, null=True) # For receipt transparency
     date = models.DateField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    def delete(self, *args, **kwargs):
+        self.is_active = False
+        self.save()
 
     def __str__(self):
         return f"{self.title} - {self.amount} {self.currency}"
@@ -102,12 +114,12 @@ class Settlement(models.Model):
     Tracks the actual transfer of money between two users to resolve a debt.
     Critical for updating User Reliability Scores.
     """
-    debtor = models.ForeignKey(
+    payer = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.CASCADE, 
         related_name='sent_settlements'
     )
-    creditor = models.ForeignKey(
+    receiver = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.CASCADE, 
         related_name='received_settlements'
@@ -121,11 +133,16 @@ class Settlement(models.Model):
     currency = models.CharField(max_length=3, default='INR')
     
     # Verification flag to ensure both parties agree the money was sent
-    is_confirmed = models.BooleanField(default=False)
+    status = models.CharField(max_length=20, default='PENDING')
     created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    def delete(self, *args, **kwargs):
+        self.is_active = False
+        self.save()
 
     def __str__(self):
-        return f"{self.debtor.username} -> {self.creditor.username}: {self.amount}"
+        return f"{self.payer.username} -> {self.receiver.username}: {self.amount}"
 
 
 class RecurringExpense(models.Model):

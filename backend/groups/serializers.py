@@ -20,16 +20,4 @@ class GroupSerializer(serializers.ModelSerializer):
         # Admin is set in the view, invite_code is auto-generated
         read_only_fields = ['admin', 'invite_code']
 
-    def create(self, validated_data):
-        """
-        Custom create to ensure a unique 8-character invite code is generated.
-        """
-        # Generate a short, unique code (Feature #1 logic)
-        invite_code = uuid.uuid4().hex[:8].upper()
-        
-        # Ensure it's unique in the DB
-        while Group.objects.filter(invite_code=invite_code).exists():
-            invite_code = uuid.uuid4().hex[:8].upper()
-            
-        validated_data['invite_code'] = invite_code
-        return super().create(validated_data)
+   
