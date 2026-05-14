@@ -170,10 +170,10 @@
         async function loadProfileData() {
             try {
                 const [user, history, expenses, settlements] = await Promise.all([
-                    api.request('/users/me/'),
-                    api.request('/users/profile/score-history/'),
-                    api.request('/expenses/'),
-                    api.request('/settlements/')
+                    api.request('/api/users/me/'),
+                    api.request('/api/users/profile/score-history/'),
+                    api.request('/api/expenses/'),
+                    api.request('/api/settlements/')
                 ]);
 
                 State.user = user;
@@ -326,7 +326,7 @@ function computeGlobalStats() {
                 btn.disabled = true; btn.innerText = 'SAVING...';
                 try {
                     const payload = { username: document.getElementById('prof-username').value.trim(), upi_id: document.getElementById('prof-upi').value.trim(), currency_preference: document.getElementById('prof-currency').value };
-                    State.user = await api.request('/users/profile/me/', { method: 'PATCH', body: JSON.stringify(payload) });
+                    State.user = await api.request('/api/users/profile/me/', { method: 'PATCH', body: JSON.stringify(payload) });
                     populateUI(); utils.hapticFeedback('medium'); confetti({ particleCount: 50, spread: 40, origin: { y: 0.8 } });
                     showAlert('Profile updated successfully.', 'success');
                 } catch (err) { showAlert('Failed to update profile.', 'error'); } 
@@ -347,7 +347,7 @@ function computeGlobalStats() {
                     return; 
                 } btn.disabled = true; btn.innerText = 'UPDATING...';
                                 try {
-                    await api.request('/users/me/', { method: 'PATCH', body: JSON.stringify({ password: newPass }) });
+                    await api.request('/api/users/me/', { method: 'PATCH', body: JSON.stringify({ password: newPass }) });
                     document.getElementById('new-password').value = ''; showAlert('Password updated successfully.', 'success');
                 } catch (err) { showAlert('Failed to update password.', 'error'); } 
                 finally { btn.disabled = false; btn.innerText = 'UPDATE PASSWORD'; }

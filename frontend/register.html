@@ -175,7 +175,7 @@
             };
 
             try {
-                const response = await api.request('/users/register/', {
+                const response = await api.request('/api/users/register/', {
                     method: 'POST',
                     body: JSON.stringify(payload)
                 });

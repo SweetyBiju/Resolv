@@ -140,9 +140,9 @@
         async function initDashboard() {
             try {
                 const [user, expenses, settlements, activeGroups] = await Promise.all([
-                    api.request('/users/me/'),
-                    api.request('/expenses/'),
-                    api.request('/settlements/'),
+                    api.request('/api/users/me/'),
+                    api.request('/api/expenses/'),
+                    api.request('/api/settlements/'),
                     api.getGroups()
                 ]);
 
@@ -373,7 +373,7 @@
                     e.currentTarget.innerText = 'WAIT...';
                     utils.hapticFeedback('medium');
                     try {
-                        await api.request(`/settlements/${id}/confirm_settlement/`, { method: 'POST' });
+                        await api.request(`/api/settlements/${id}/confirm_settlement/`, { method: 'POST' });
                         confetti({ particleCount: 150, spread: 100, origin: { y: 0.5 }, ticks: 400, gravity: 0.8 });
                         showAlert('Payment Confirmed!', 'success');
                         setTimeout(() => { initDashboard(); }, 1500);

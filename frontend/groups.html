@@ -88,10 +88,10 @@
         async function loadGroupsData() {
             try {
                 const [user, groups, expenses, settlements] = await Promise.all([
-                    api.request('/users/me/'),
+                    api.request('/api/users/me/'),
                     api.getGroups(),
                     api.getExpenses(),
-                    api.request('/settlements/')
+                    api.request('/api/settlements/')
                 ]);
 
                 renderGroups(user.id, groups, expenses, settlements);
@@ -228,7 +228,7 @@
             
             utils.hapticFeedback('medium');
             try {
-                const response = await api.request('/groups/join/', {
+                const response = await api.request('/api/groups/join/', {
                     method: 'POST',
                     body: JSON.stringify({ invite_code: code })
                 });
@@ -267,7 +267,7 @@
 
                             utils.hapticFeedback('light');
                             try {
-                                const response = await api.request('/groups/', {
+                                const response = await api.request('/api/groups/', {
                                     method: 'POST',
                                     body: JSON.stringify({ name: name, description: desc })
                                 });

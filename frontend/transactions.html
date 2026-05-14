@@ -122,10 +122,10 @@
             try {
                 // Fetch everything in parallel
                 const [user, groups, expenses, settlements] = await Promise.all([
-                    api.request('/users/me/'),
-                    api.request('/groups/'),
-                    api.request('/expenses/'),
-                    api.request('/settlements/')
+                    api.request('/api/users/me/'),
+                    api.request('/api/groups/'),
+                    api.request('/api/expenses/'),
+                    api.request('/api/settlements/')
                 ]);
 
                 State.currentUser = user;
@@ -384,7 +384,7 @@
             
             try {
                 // Hits the confirm_settlement endpoint from your views.py
-                await api.request(`/settlements/${id}/confirm_settlement/`, { method: 'POST' });
+                await api.request(`/api/settlements/${id}/confirm_settlement/`, { method: 'POST' });
                 confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
                 showAlert('Payment Confirmed!', 'success');
                 loadData(); // Re-fetch to update feed status
