@@ -120,7 +120,7 @@ class ResolvAPI {
 
     // Auth
     async login(credentials) {
-        return await this.request('/token/', {
+        return await this.request('/api/token/', {
             method: 'POST',
             body: JSON.stringify(credentials)
         });
@@ -128,20 +128,20 @@ class ResolvAPI {
 
     // Groups
     async getGroups() {
-        return await this.request('/groups/');
+        return await this.request('/api/groups/');
     }
 
     async getGroupDetails(id) {
-        return await this.request(`/groups/${id}/`);
+        return await this.request(`/api/groups/${id}/`);
     }
 
     // Expenses
     async getExpenses() {
-        return await this.request('/expenses/');
+        return await this.request('/api/expenses/');
     }
 
     async createExpense(data) {
-        return await this.request('/expenses/', {
+        return await this.request('/api/expenses/', {
             method: 'POST',
             body: JSON.stringify(data)
         });
@@ -149,7 +149,7 @@ class ResolvAPI {
 
     // Settlements
     async confirmSettlement(id) {
-        return await this.request(`/settlements/${id}/confirm_settlement/`, {
+        return await this.request(`/api/settlements/${id}/confirm_settlement/`, {
             method: 'POST'
         });
     }

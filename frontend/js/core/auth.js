@@ -50,7 +50,7 @@ class AuthManager {
         }
 
         try {
-            const response = await fetch(`${api.baseURL}/token/refresh/`, {
+            const response = await fetch(`${api.baseURL}/api/token/refresh/`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ refresh: refreshToken })
