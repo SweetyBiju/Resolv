@@ -5,7 +5,7 @@
 
 class ResolvAPI {
     constructor() {
-        this.baseURL = 'http://localhost:8000/api'; // Update to production URL when deploying
+        this.baseURL = 'https://resolv-api.onrender.com'; // Update to production URL when deploying
         this.isDemoMode = false;
     }
 
