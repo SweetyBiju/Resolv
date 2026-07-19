@@ -1,44 +1,172 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resolv | Loading...</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    boxShadow: { 'comic': '6px 6px 0px 0px rgba(0,0,0,1)' }
-                }
-            }
-        }
-    </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Resolv — Split Expenses. Settle Debts. No Drama.</title>
+  <meta name="description" content="Resolv makes splitting expenses and settling group debts effortless. Create groups, add expenses, and settle up with smart settlement suggestions.">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <style>
+    .hero-section {
+      min-height: 85vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: var(--space-10) var(--space-8);
+    }
+    .hero-card {
+      max-width: 640px; width: 100%;
+      background: var(--bg-card);
+      border: var(--border-thick);
+      border-radius: var(--radius);
+      box-shadow: 8px 8px 0px #0A0A0A;
+      padding: var(--space-10);
+      text-align: center;
+    }
+    .hero-wordmark {
+      font-size: 72px; font-weight: 700;
+      letter-spacing: -0.04em; line-height: 1;
+      margin-bottom: var(--space-4);
+    }
+    .hero-wordmark span { color: var(--yellow); }
+    .hero-tagline {
+      font-size: var(--text-xl); font-weight: 500;
+      color: var(--text-secondary);
+      margin-bottom: var(--space-8);
+    }
+    .hero-ctas { display: flex; gap: var(--space-4); justify-content: center; flex-wrap: wrap; }
+    .steps-section { background: var(--bg-card); border-top: var(--border); border-bottom: var(--border); }
+    .steps-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-6); }
+    .step-card {
+      background: var(--bg-page);
+      border: var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-card);
+      padding: var(--space-6);
+      text-align: center;
+    }
+    .step-num {
+      width: 40px; height: 40px;
+      background: var(--yellow);
+      border: var(--border);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: var(--text-lg);
+      margin: 0 auto var(--space-3);
+    }
+    .step-label { font-weight: 700; font-size: var(--text-base); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: var(--space-2); }
+    .features-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--space-6); }
+    .feature-card {
+      background: var(--bg-card);
+      border: var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-card);
+      padding: var(--space-6);
+    }
+    .feature-icon { font-size: 28px; margin-bottom: var(--space-3); }
+    .feature-label { font-weight: 700; font-size: var(--text-base); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--space-2); }
+    .public-footer {
+      border-top: var(--border);
+      padding: var(--space-5) var(--space-8);
+      display: flex; align-items: center; justify-content: space-between;
+      background: var(--bg-card); font-size: var(--text-sm);
+      color: var(--text-muted); font-weight: 600;
+    }
+    .footer-logo { font-weight: 700; font-size: var(--text-lg); text-transform: uppercase; }
+    .footer-logo span { color: var(--yellow); }
+    @media (max-width: 768px) {
+      .hero-wordmark { font-size: 48px; }
+      .steps-grid { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr 1fr; }
+      .hero-section { padding: var(--space-8) var(--space-4); }
+    }
+    @media (max-width: 480px) {
+      .features-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
-<body class="bg-yellow-300 text-black min-h-screen flex items-center justify-center">
+<body class="public-shell">
 
-    <div class="text-center animate-pulse">
-        <h1 class="text-7xl font-black uppercase italic tracking-tighter mb-4">Resolv<span class="text-purple-400">.</span></h1>
-        <div class="border-4 border-black bg-white px-6 py-2 shadow-comic inline-block font-black uppercase tracking-widest text-sm">
-            Initializing Engine...
-        </div>
+  <!-- NAV -->
+  <nav class="public-nav">
+    <div class="public-nav-logo">RESOLV<span>.</span></div>
+    <div class="public-nav-actions">
+      <a href="login.html"    class="btn btn-outline btn-sm">LOG IN</a>
+      <a href="register.html" class="btn btn-primary btn-sm">GET STARTED</a>
     </div>
+  </nav>
 
-    <script type="module">
-        import { auth } from './js/core/auth.js';
+  <!-- HERO -->
+  <section class="hero-section">
+    <div class="hero-card">
+      <div class="hero-wordmark">RESOLV<span>.</span></div>
+      <p class="hero-tagline">Split expenses. Settle debts. No drama.</p>
+      <div class="hero-ctas">
+        <a href="register.html" class="btn btn-primary btn-lg" id="hero-get-started">GET STARTED</a>
+        <a href="login.html"    class="btn btn-outline btn-lg" id="hero-log-in">LOG IN</a>
+      </div>
+    </div>
+  </section>
 
-        // Brief timeout to allow the splash screen to render before redirecting
-        setTimeout(() => {
-            if (auth.isAuthenticated()) {
-                window.location.href = 'dashboard.html';
-            } else {
-                window.location.href = 'login.html';
-            }
-        }, 1000);
-    </script>
+  <!-- HOW IT WORKS -->
+  <section class="steps-section public-section">
+    <div class="section-header" style="margin-bottom:var(--space-6)">
+      <h2 class="section-title" style="font-size:var(--text-2xl)">How It Works</h2>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card">
+        <div class="step-num">1</div>
+        <div class="step-label">Create a Group</div>
+        <p>Invite your friends, flatmates, or travel buddies with a simple invite code.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">2</div>
+        <div class="step-label">Add Expenses</div>
+        <p>Record who paid what. Split equally, by exact amounts, percent, or by item.</p>
+      </div>
+      <div class="step-card">
+        <div class="step-num">3</div>
+        <div class="step-label">Settle Up</div>
+        <p>Resolv's algorithm tells you exactly who pays who — minimum transactions, zero confusion.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section class="public-section">
+    <div class="section-header" style="margin-bottom:var(--space-6)">
+      <h2 class="section-title" style="font-size:var(--text-2xl)">Why Resolv</h2>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-label">Smart Settlement</div>
+        <p class="text-sm">Dual settlement algorithm minimises the number of transactions needed.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⭐</div>
+        <div class="feature-label">Reliability Score</div>
+        <p class="text-sm">Track your payment history and build trust with your group.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📋</div>
+        <div class="feature-label">Full Audit Trail</div>
+        <p class="text-sm">Every action is logged. Know exactly what changed and when.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">💱</div>
+        <div class="feature-label">Multi-Currency</div>
+        <p class="text-sm">Each group has its own currency. Travel trips made easy.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="public-footer">
+    <div class="footer-logo">RESOLV<span>.</span></div>
+    <span>Built with Django + Vanilla JS</span>
+  </footer>
+
 </body>
 </html>

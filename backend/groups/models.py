@@ -1,99 +1,94 @@
+"""
+groups/models.py
+────────────────
+Two models:
+  Group           — a shared expense pool with invite-code membership
+  GroupMembership — through model capturing role and join date
+
+Design rules:
+  - Group.admin uses SET_NULL (not PROTECT) so the group survives admin deletion.
+  - GroupMembership is hard-deleted (it is not financial data).
+  - Budget lives in analytics/, not here.
+"""
 import uuid
 from django.db import models
 from django.conf import settings
+from .managers import ActiveGroupManager
+
+
+class GroupMembership(models.Model):
+    """
+    Through model for the Group ↔ User many-to-many.
+    Captures role (ADMIN / MEMBER) and the exact join timestamp.
+    Always create via GroupMembership.objects.create() — never use members.add()
+    directly, as that bypasses the role default.
+    """
+    ROLE_CHOICES = [
+        ('ADMIN',  'Admin'),
+        ('MEMBER', 'Member'),
+    ]
+    group     = models.ForeignKey('Group', on_delete=models.CASCADE)
+    user      = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    role      = models.CharField(max_length=10, choices=ROLE_CHOICES, default='MEMBER')
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('group', 'user')]
+
+    def __str__(self):
+        return f"{self.user} in {self.group} ({self.role})"
+
 
 class Group(models.Model):
-    name = models.CharField(max_length=255)
+    """
+    A shared expense pool. Members are linked via the GroupMembership through model.
+
+    admin → SET_NULL: if the admin user is deleted, the group survives and
+    another member can be promoted. PROTECT would block any admin deletion forever.
+
+    invite_code: auto-generated UUID hex[:8] on first save. DB unique constraint
+    handles the rare collision — no retry loop (which would itself be a race condition).
+    """
+    name        = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    # Optional UI display fields
+    emoji       = models.CharField(max_length=4, blank=True)
+    currency    = models.CharField(max_length=3, default='INR')
     invite_code = models.CharField(max_length=10, unique=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    is_active   = models.BooleanField(default=True, db_index=True)
+
+    # SET_NULL so the group survives admin deletion. Never PROTECT — see docstring.
     admin = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
-        related_name='admin_groups'
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='admin_groups',
     )
     members = models.ManyToManyField(
-        settings.AUTH_USER_MODEL, 
+        settings.AUTH_USER_MODEL,
+        through='GroupMembership',
         related_name='joined_groups',
-        blank=True
+        blank=True,
     )
-    # soft-delete parity
-    is_active = models.BooleanField(default=True)
+
+    objects     = ActiveGroupManager()   # default: active groups only
+    all_objects = models.Manager()       # admin/audit: includes soft-deleted
 
     def save(self, *args, **kwargs):
-        # Centralized and unique 8-character invite code generation
         if not self.invite_code:
             self.invite_code = uuid.uuid4().hex[:8].upper()
-            while Group.objects.filter(invite_code=self.invite_code).exists():
-                self.invite_code = uuid.uuid4().hex[:8].upper()
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        # Override default delete for atomic soft-delete
+        """Soft delete — financial records referencing this group are preserved."""
         self.is_active = False
-        self.save()
+        self.save(update_fields=['is_active'])
+
+    class Meta:
+        indexes = [models.Index(fields=['invite_code'])]
 
     def __str__(self):
         return self.name
 
 
-
-class Trip(models.Model):
-    """
-    A specific event or sub-category within a group (e.g., 'Goa Trip 2026').
-    Allows for scoping expenses to specific dates and titles.
-    """
-    # Foreign Key (FK) to the parent Group
-    group = models.ForeignKey(
-        'Group', 
-        on_delete=models.CASCADE, 
-        related_name='trips'
-    )
-    title = models.CharField(max_length=255)
-    description = models.TextField(blank=True)
-    
-    # Metadata for the trip duration
-    start_date = models.DateField(null=True, blank=True)
-    end_date = models.DateField(null=True, blank=True)
-    
-    # Each trip can have its own base currency
-    currency = models.CharField(max_length=3, default='INR')
-    
-    # Status to track if the trip is currently ongoing
-    is_active = models.BooleanField(default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f"{self.title} ({self.group.name})"
-    
-
-
-
-
-class Budget(models.Model):
-    """Shared group budgets with proactive utilization tracking.
-    Helps in financial discipline for group events or trips.
-    """
-    group = models.ForeignKey(
-        'Group', 
-        on_delete=models.CASCADE, 
-        related_name='budgets'
-    )
-    # Budget can be scoped to a specific Trip or the whole Group [cite: 86]
-    trip = models.ForeignKey(
-        'Trip', 
-        on_delete=models.CASCADE, 
-        null=True, 
-        blank=True, 
-        related_name='budgets'
-    )
-    category = models.CharField(max_length=50, default='General') # e.g., Food, Travel
-    amount_limit = models.DecimalField(max_digits=12, decimal_places=2)
-    
-    # Flags for Celery tasks to send one-time alerts at specific thresholds [cite: 86]
-    alert_75_sent = models.BooleanField(default=False)
-    alert_90_sent = models.BooleanField(default=False)
-    alert_100_sent = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f"Budget: {self.category} for {self.group.name}"

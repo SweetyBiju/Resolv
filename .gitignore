@@ -210,3 +210,19 @@ __marimo__/
 
 
 .vscode/
+
+# Node / JS
+node_modules/
+npm-debug.log
+yarn-error.log
+.eslintcache
+
+# Mac OS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Frontend build artifacts
+dist/
+build/
+out/

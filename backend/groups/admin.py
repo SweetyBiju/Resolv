@@ -1,23 +1,19 @@
 from django.contrib import admin
-from .models import Group, Trip, Budget
+from .models import Group, GroupMembership
 
-class TripInline(admin.TabularInline):
-    """Shows all trips belonging to a group inside the group page."""
-    model = Trip
-    extra = 0
+
+class GroupMembershipInline(admin.TabularInline):
+    """Shows all memberships for a group inline on the Group admin page."""
+    model  = GroupMembership
+    extra  = 0
+    fields = ['user', 'role', 'joined_at']
+    readonly_fields = ['joined_at']
+
 
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
-    list_display = ('name', 'admin', 'invite_code', 'created_at')
-    search_fields = ('name', 'invite_code')
-    inlines = [TripInline]
-
-@admin.register(Trip)
-class TripAdmin(admin.ModelAdmin):
-    list_display = ('title', 'group', 'start_date', 'end_date', 'is_active')
-    list_filter = ('is_active', 'group')
-
-
-@admin.register(Budget)
-class BudgetAdmin(admin.ModelAdmin):
-    list_display = ('group', 'category', 'amount_limit', 'alert_100_sent')
+    list_display   = ('name', 'admin', 'currency', 'invite_code', 'is_active', 'created_at')
+    list_filter    = ('is_active', 'currency')
+    search_fields  = ('name', 'invite_code')
+    readonly_fields = ('invite_code', 'created_at')
+    inlines        = [GroupMembershipInline]

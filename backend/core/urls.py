@@ -1,36 +1,57 @@
-"""
-URL configuration for core project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.0/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
-from django.urls import path,include
+from django.urls import path, include
+from django.http import JsonResponse
 
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
+from core.views import (
+    CookieTokenObtainPairView, 
+    CookieTokenRefreshView, 
+    CookieTokenBlacklistView, 
+    CookieLogoutAllView
+)
+from rest_framework.throttling import AnonRateThrottle
+from drf_spectacular.views import (   # API docs
+    SpectacularAPIView,
+    SpectacularSwaggerView,
+    SpectacularRedocView,
 )
 
+
+# ── Custom throttle for login endpoint ───────────────────────────────────────
+class LoginRateThrottle(AnonRateThrottle):
+    scope = 'login'  # Defined in settings: 'login': '5/minute'
+
+
+# ── Health check — no auth, no DB, instant response ──────────────────────────
+def health_check(request):            
+    return JsonResponse({'status': 'ok'})
+
+
+# ── Versioned API URL block ───────────────────────────────────────────────────
+v1_patterns = [
+    # Auth
+    path('auth/login/',   CookieTokenObtainPairView.as_view(
+        throttle_classes=[LoginRateThrottle]  #  5/minute on login
+    ), name='token_obtain_pair'),
+    path('auth/refresh/', CookieTokenRefreshView.as_view(),   name='token_refresh'),
+    path('auth/logout/',  CookieTokenBlacklistView.as_view(),  name='token_blacklist'),
+    path('auth/logout-all/', CookieLogoutAllView.as_view(), name='logout_all'),
+
+    # App URLs 
+    path('', include('users.urls')),
+    path('', include('expenses.urls')),
+    path('', include('groups.urls')),
+    path('', include('activity.urls')),
+    path('', include('analytics.urls')),
+
+
+    # API schema and docs
+    path('schema/',  SpectacularAPIView.as_view(),        name='schema'),
+    path('docs/',    SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
+    path('redoc/',   SpectacularRedocView.as_view(url_name='schema'),   name='redoc'),
+]
+
 urlpatterns = [
-    path('admin/', admin.site.urls),
-
-    # Auth Endpoints
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'), # Login
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'), # Stay logged in
-
-    path('api/users/', include('users.urls')),
-    path('api/', include('expenses.urls')),
-    path('api/groups/', include('groups.urls')),
-
+    path('admin/',    admin.site.urls),
+    path('health/',   health_check, name='health'),      
+    path('api/v1/',   include((v1_patterns, 'v1'))),     
 ]

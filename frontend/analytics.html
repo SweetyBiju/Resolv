@@ -1,203 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resolv | Analytics</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    boxShadow: { 
-                        'comic': '6px 6px 0px 0px rgba(0,0,0,1)',
-                        'comic-sm': '3px 3px 0px 0px rgba(0,0,0,1)' 
-                    }
-                }
-            }
-        }
-    </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics — Resolv</title>
+  <meta name="description" content="Spending analytics, category breakdown, budget tracking and insights.">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <style>
+    .chart-card { background: var(--bg-card); border: var(--border); border-radius: var(--radius); box-shadow: var(--shadow-card); padding: var(--space-6); margin-bottom: var(--space-6); }
+    .chart-container { position: relative; height: 280px; }
+    .insight-card { display: flex; align-items: flex-start; gap: var(--space-4); }
+    .insight-icon { font-size: 28px; flex-shrink: 0; }
+    .insight-headline { font-weight: 700; font-size: var(--text-base); margin-bottom: 4px; }
+    .budget-row { display: flex; align-items: center; gap: var(--space-4); padding: var(--space-3) 0; border-bottom: var(--border); }
+    .budget-row:last-child { border-bottom: none; }
+    .budget-bar-wrap { flex: 1; height: 20px; background: #E5E7EB; border: var(--border); border-radius: var(--radius); overflow: hidden; position: relative; }
+    .budget-bar { height: 100%; border-radius: var(--radius); transition: width 0.4s ease; }
+    .budget-label { width: 100px; font-weight: 600; font-size: var(--text-xs); text-transform: uppercase; flex-shrink: 0; }
+    .budget-amount { width: 90px; text-align: right; font-size: var(--text-xs); font-weight: 600; flex-shrink: 0; }
+  </style>
 </head>
-<body class="bg-slate-50 text-black min-h-screen">
+<body>
+<div id="app">
+  <div id="sidebar"></div>
+  <div id="main">
+    <header id="topbar">
+      <span class="topbar-title">Analytics</span>
+      <div class="topbar-right">
+        <a href="profile.html" class="topbar-user">
+          <div class="avatar" id="topbar-avatar">?</div>
+          <span class="topbar-username" id="topbar-username"></span>
+        </a>
+      </div>
+    </header>
+    <main id="content">
 
-    <div class="flex flex-col md:flex-row min-h-screen">
-        
-        <nav class="w-full md:w-64 bg-white border-b-4 md:border-b-0 md:border-r-4 border-black p-6 flex flex-col">
-            <h1 class="text-3xl font-black uppercase italic mb-10">Resolv<span class="text-purple-400">.</span></h1>
-            
-            <div class="space-y-4 flex-grow">
-                <a href="dashboard.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
-                    <i data-lucide="layout-dashboard" stroke-width="4"></i> Dashboard
-                </a>
-                <a href="groups.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
-                    <i data-lucide="users" stroke-width="4"></i> Groups
-                </a>
-                <a href="analytics.html" class="flex items-center gap-3 p-3 bg-purple-400 border-4 border-black shadow-comic font-black uppercase text-sm transition-all">
-                    <i data-lucide="pie-chart" stroke-width="4"></i> Analytics
-                </a>
-            </div>
+      <div class="page-header">
+        <h1 class="page-title">Analytics</h1>
+        <div class="page-actions">
+          <div class="select-wrapper">
+            <select class="form-select" id="analytics-group-select">
+              <option value="">All Groups</option>
+            </select>
+          </div>
+          <button class="btn btn-outline" id="btn-export-csv">Export CSV</button>
+        </div>
+      </div>
 
-            <button id="logout-btn" class="mt-auto flex items-center gap-3 p-3 border-4 border-black hover:bg-pink-400 font-black uppercase text-sm transition-all">
-                <i data-lucide="log-out" stroke-width="4"></i> Log Out
-            </button>
-        </nav>
+      <!-- Monthly Trends Chart -->
+      <div class="chart-card">
+        <div class="card-header">
+          <span class="card-title">📈 Monthly Spending Trends</span>
+        </div>
+        <div class="chart-container">
+          <canvas id="chart-trends" aria-label="Monthly spending trends chart"></canvas>
+          <div id="chart-trends-empty" class="empty-state hidden" style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:var(--space-4)">No spending trends recorded yet. Once you add expenses to your groups, your spending trends will appear here!</div>
+          <div id="chart-trends-error" class="empty-state hidden" style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:var(--space-4)">Interactive charts are currently unavailable. You can still set budgets, view details, and export your spending to CSV below!</div>
+        </div>
+      </div>
 
-        <main class="flex-grow p-6 md:p-12 overflow-y-auto">
-            
-            <header class="mb-12">
-                <h2 class="text-5xl font-black uppercase tracking-tighter italic">Spending Insights</h2>
-                <p class="font-bold text-gray-500 uppercase tracking-widest text-xs mt-2">Data-driven debt management</p>
-            </header>
+      <!-- Category Breakdown -->
+      <div class="grid-2" style="margin-bottom:var(--space-6)">
+        <div class="chart-card" style="margin-bottom:0">
+          <div class="card-header">
+            <span class="card-title">🍕 Category Breakdown</span>
+          </div>
+          <div class="chart-container" style="height:240px">
+            <canvas id="chart-categories" aria-label="Category breakdown donut chart"></canvas>
+            <div id="chart-categories-empty" class="empty-state hidden" style="position:absolute;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:var(--space-4)">No spending recorded in this category view yet.</div>
+          </div>
+          <div id="category-legend" style="margin-top:var(--space-4);display:flex;flex-wrap:wrap;gap:var(--space-2)"></div>
+        </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-                <div class="bg-white border-4 border-black p-6 shadow-comic">
-                    <p class="font-black uppercase text-[10px] text-gray-500 mb-1">Total Monthly Spend</p>
-                    <div class="text-3xl font-black">₹24,500</div>
-                </div>
-                <div class="bg-lime-300 border-4 border-black p-6 shadow-comic">
-                    <p class="font-black uppercase text-[10px] text-black mb-1">Amount Owed to You</p>
-                    <div class="text-3xl font-black">₹8,200</div>
-                </div>
-                <div class="bg-pink-400 border-4 border-black p-6 shadow-comic">
-                    <p class="font-black uppercase text-[10px] text-black mb-1">Your Total Debt</p>
-                    <div class="text-3xl font-black">₹3,450</div>
-                </div>
-            </div>
+        <!-- Insights -->
+        <div class="chart-card" style="margin-bottom:0">
+          <div class="card-header">
+            <span class="card-title">💡 Insights</span>
+          </div>
+          <div id="insights-list" style="display:flex;flex-direction:column;gap:var(--space-4)"></div>
+        </div>
+      </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
-                
-                <div class="lg:col-span-8 bg-white border-4 border-black p-8 shadow-comic">
-                    <h3 class="text-xl font-black uppercase mb-8 flex items-center gap-2">
-                        <i data-lucide="trending-up" stroke-width="4"></i> 6-Month Trend
-                    </h3>
-                    <div class="h-80">
-                        <canvas id="trendChart"></canvas>
-                    </div>
-                </div>
+      <!-- Budget vs Actual -->
+      <div class="chart-card">
+        <div class="card-header">
+          <span class="card-title">🎯 Budget vs Actual</span>
+        </div>
+        <div id="budget-list"></div>
+        <div id="budget-empty" class="empty-state hidden" style="padding:var(--space-6)">No budget data. Set budgets per category.</div>
+      </div>
 
-                <div class="lg:col-span-4 bg-white border-4 border-black p-8 shadow-comic">
-                    <h3 class="text-xl font-black uppercase mb-8 flex items-center gap-2">
-                        <i data-lucide="tag" stroke-width="4"></i> Category Split
-                    </h3>
-                    <div class="h-64">
-                        <canvas id="categoryChart"></canvas>
-                    </div>
-                </div>
+    </main>
+  </div>
+  <div id="bottom-nav"></div>
+</div>
 
-                <div class="lg:col-span-12 bg-blue-400 border-4 border-black p-8 shadow-comic">
-                    <h3 class="text-xl font-black uppercase mb-6">Budget Tracking</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div class="space-y-4">
-                            <div class="flex justify-between font-black uppercase text-xs">
-                                <span>Food & Dining</span>
-                                <span>75% used</span>
-                            </div>
-                            <div class="w-full bg-white border-4 border-black h-8 relative overflow-hidden">
-                                <div class="bg-yellow-300 h-full border-r-4 border-black" style="width: 75%"></div>
-                            </div>
-                        </div>
-                        <div class="space-y-4">
-                            <div class="flex justify-between font-black uppercase text-xs">
-                                <span>Travel & Transport</span>
-                                <span>40% used</span>
-                            </div>
-                            <div class="w-full bg-white border-4 border-black h-8 relative overflow-hidden">
-                                <div class="bg-lime-400 h-full border-r-4 border-black" style="width: 40%"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </main>
-    </div>
-
-    <script type="module">
-        import { api } from './js/core/api.js';
-        import { auth } from './js/core/auth.js';
-        import { ui } from './js/core/ui.js';
-
-        lucide.createIcons();
-        auth.checkAuthAndRedirect();
-
-        document.getElementById('logout-btn').addEventListener('click', () => auth.logout());
-
-        // --- Chart Configuration ---
-
-        const commonOptions = {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: {
-                        font: { family: 'Inter', weight: '900', size: 12 },
-                        boxWidth: 20,
-                        padding: 20
-                    }
-                }
-            }
-        };
-
-        function initCharts() {
-            // Trend Line Chart
-            const trendCtx = document.getElementById('trendChart').getContext('2d');
-            new Chart(trendCtx, {
-                type: 'line',
-                data: {
-                    labels: ['Sept', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb'],
-                    datasets: [{
-                        label: 'Total Expenses',
-                        data: [12000, 19000, 15000, 25000, 22000, 24500],
-                        borderColor: '#000000',
-                        backgroundColor: '#60a5fa',
-                        borderWidth: 4,
-                        pointBackgroundColor: '#fde047',
-                        pointBorderColor: '#000000',
-                        pointBorderWidth: 3,
-                        pointRadius: 6,
-                        tension: 0 // Sharp lines for comic look
-                    }]
-                },
-                options: {
-                    ...commonOptions,
-                    scales: {
-                        y: {
-                            grid: { color: '#000', lineWidth: 1 },
-                            ticks: { font: { weight: 'bold' } }
-                        },
-                        x: {
-                            grid: { display: false },
-                            ticks: { font: { weight: 'bold' } }
-                        }
-                    }
-                }
-            });
-
-            // Category Pie Chart
-            const catCtx = document.getElementById('categoryChart').getContext('2d');
-            new Chart(catCtx, {
-                type: 'pie',
-                data: {
-                    labels: ['Food', 'Rent', 'Travel', 'Entertainment'],
-                    datasets: [{
-                        data: [40, 30, 20, 10],
-                        backgroundColor: ['#fde047', '#f472b6', '#a3e635', '#c084fc'],
-                        borderColor: '#000000',
-                        borderWidth: 4,
-                        hoverOffset: 20
-                    }]
-                },
-                options: commonOptions
-            });
-        }
-
-        window.addEventListener('load', initCharts);
-    </script>
+<div id="toast-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script type="module" src="js/pages/analytics.js?v=2"></script>
 </body>
 </html>

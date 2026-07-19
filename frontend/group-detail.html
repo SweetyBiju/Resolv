@@ -1,1348 +1,383 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resolv | Squad Details</title>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    boxShadow: {
-                        'comic': '6px 6px 0px 0px rgba(0,0,0,1)',
-                        'comic-sm': '3px 3px 0px 0px rgba(0,0,0,1)'
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        ::-webkit-scrollbar { width: 12px; }
-        ::-webkit-scrollbar-track { background: #eff6ff; border-left: 4px solid #000; }
-        ::-webkit-scrollbar-thumb { background: #000; border: 2px solid #eff6ff; }
-        input[type=number]::-webkit-inner-spin-button, 
-        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Group — Resolv</title>
+  <meta name="description" content="View group balances, expenses, settlements and members.">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/layout.css">
 </head>
-<body class="bg-blue-50 text-black font-sans overflow-hidden">
+<body>
+<div id="app">
+  <div id="sidebar"></div>
+  <div id="main">
+    <header id="topbar">
+      <span class="topbar-title" id="topbar-group-name">Group</span>
+      <div class="topbar-right">
+        <a href="profile.html" class="topbar-user">
+          <div class="avatar" id="topbar-avatar">?</div>
+          <span class="topbar-username" id="topbar-username"></span>
+        </a>
+      </div>
+    </header>
+    <main id="content">
 
-    <div class="flex flex-col md:flex-row min-h-screen h-screen">
-        
-        <nav class="w-full md:w-64 bg-white border-b-4 md:border-b-0 md:border-r-4 border-black p-6 flex flex-col z-20 sticky top-0 md:h-screen flex-shrink-0 overflow-y-auto">
-            <h1 class="text-4xl font-black uppercase italic mb-10 tracking-tighter">Resolv<span class="text-purple-400">.</span></h1>
-            <div class="space-y-4 flex-grow">
-                <a href="dashboard.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
-                    <i data-lucide="layout-dashboard" stroke-width="4"></i> Dashboard
-                </a>
-                <a href="groups.html" class="flex items-center gap-3 p-3 bg-lime-300 border-4 border-black shadow-comic font-black uppercase text-sm transition-all">
-                    <i data-lucide="users" stroke-width="4"></i> Groups
-                </a>
-                <a href="transactions.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
-                    <i data-lucide="arrow-left-right" stroke-width="4"></i> Activity
-                </a>
-                <a href="profile.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
-                    <i data-lucide="user" stroke-width="4"></i> Profile
-                </a>
-            </div>
-            <button id="logout-btn" class="mt-8 flex items-center gap-3 p-3 border-4 border-black hover:bg-pink-400 font-black uppercase text-sm transition-all">
-                <i data-lucide="log-out" stroke-width="4"></i> Log Out
-            </button>
-        </nav>
+      <!-- Group Header -->
+      <div class="group-detail-header" id="group-header">
+        <div>
+          <div style="display:flex;align-items:center;gap:var(--space-3);margin-bottom:var(--space-2)">
+            <span id="group-emoji" style="font-size:28px"></span>
+            <h1 class="page-title" id="group-name-heading">Loading…</h1>
+          </div>
+          <div style="display:flex;gap:var(--space-2);align-items:center;flex-wrap:wrap" id="group-meta">
+            <!-- currency badge, member count filled by JS -->
+          </div>
+        </div>
+        <div class="page-actions" id="group-actions">
+          <!-- invite / edit / delete filled by JS based on role -->
+        </div>
+      </div>
 
-        <main class="flex-grow p-6 md:p-12 overflow-y-auto relative w-full">
-            
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-                <div>
-                    <a href="groups.html" class="flex items-center gap-2 font-black uppercase text-[10px] tracking-widest text-gray-500 hover:text-black mb-2 transition-colors w-fit">
-                        <i data-lucide="arrow-left" stroke-width="4" class="w-3 h-3"></i> Back to Squads
-                    </a>
-                    <h2 id="group-name-heading" class="text-5xl font-black uppercase tracking-tighter italic">Loading...</h2>
-                    <p id="group-meta" class="font-bold text-[10px] uppercase text-gray-500 tracking-widest mt-1">LOADING DETAILS...</p>
-                    
-                    <div class="mt-3 flex items-center gap-2">
-                        <span class="font-black text-[10px] uppercase text-gray-500 tracking-widest">INVITE CODE:</span>
-                        <span id="top-invite-code" class="bg-blue-300 border-2 border-black px-2 py-1 font-black text-xs uppercase tracking-widest shadow-comic-sm hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none transition-all cursor-pointer" title="Click to copy">LOADING</span>
-                    </div>
-                </div>
-                <div class="flex gap-3">
-                    <button id="settle-up-btn" class="flex items-center gap-2 bg-white border-4 border-black px-4 py-2 font-black uppercase text-sm shadow-comic hover:-translate-y-1 active:translate-y-1 active:shadow-none transition-all">
-                        <i data-lucide="handshake" stroke-width="4"></i> Settle Up
-                    </button>
-                    <button id="add-expense-btn" class="flex items-center gap-2 bg-yellow-300 border-4 border-black px-4 py-2 font-black uppercase text-sm shadow-comic hover:-translate-y-1 active:translate-y-1 active:shadow-none transition-all">
-                        <i data-lucide="plus" stroke-width="4"></i> Add Expense
-                    </button>
-                </div>
-            </div>
+      <!-- Tabs -->
+      <div class="tabs" id="group-tabs" role="tablist">
+        <button class="tab-btn active" data-tab="balances"    role="tab" aria-selected="true"  id="tab-balances">Balances</button>
+        <button class="tab-btn"        data-tab="expenses"    role="tab" aria-selected="false" id="tab-expenses">Expenses</button>
+        <button class="tab-btn"        data-tab="settlements" role="tab" aria-selected="false" id="tab-settlements">Settlements</button>
+        <button class="tab-btn"        data-tab="members"     role="tab" aria-selected="false" id="tab-members">Members</button>
+      </div>
 
-            <div id="alert-banner" class="hidden mb-6 border-4 border-black p-4 font-black uppercase text-sm shadow-comic"></div>
+      <!-- BALANCES TAB -->
+      <div class="tab-panel active" id="panel-balances">
+        <div id="personal-balance-banner" style="margin-bottom:var(--space-4)"></div>
+        <div class="card" style="margin-bottom:var(--space-6)">
+          <div class="card-header"><span class="card-title">Member Balances</span></div>
+          <div class="table-wrapper">
+            <table class="data-table" id="balances-table">
+              <thead><tr><th>Member</th><th>Total Paid</th><th>Total Share</th><th>Net Status</th></tr></thead>
+              <tbody id="balances-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">⚡ Who Owes Whom (Suggested Settlements)</span></div>
+          <div id="suggested-list"></div>
+        </div>
+      </div>
 
-            <div class="flex gap-0 mb-8 border-4 border-black shadow-comic w-fit overflow-x-auto max-w-full">
-                <button data-tab="expenses" class="tab-btn active-tab bg-black text-white px-6 py-3 font-black uppercase text-xs tracking-widest border-r-4 border-black">Expenses</button>
-                <button data-tab="balances" class="tab-btn bg-white text-black px-6 py-3 font-black uppercase text-xs tracking-widest border-r-4 border-black hover:bg-slate-100 transition-colors">Balances</button>
-                <button data-tab="charts" class="tab-btn bg-white text-black px-6 py-3 font-black uppercase text-xs tracking-widest border-r-4 border-black hover:bg-slate-100 transition-colors">Charts</button>
-                <button data-tab="settings" class="tab-btn bg-white text-black px-6 py-3 font-black uppercase text-xs tracking-widest hover:bg-slate-100 transition-colors">Settings</button>
-            </div>
+      <!-- EXPENSES TAB -->
+      <div class="tab-panel" id="panel-expenses">
+        <div class="section-header" style="margin-bottom:var(--space-4)">
+          <span class="section-title">Expenses</span>
+          <button class="btn btn-primary btn-sm" id="btn-add-expense">+ Add Expense</button>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table" id="expenses-table">
+            <thead><tr><th>Title</th><th>Amount</th><th>Paid By</th><th>Split</th><th>Category</th><th>Date</th><th></th></tr></thead>
+            <tbody id="expenses-tbody"></tbody>
+          </table>
+        </div>
+        <div id="expenses-empty" class="empty-state hidden" style="margin-top:var(--space-6)">No expenses yet. Add one!</div>
+      </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                
-                <div class="lg:col-span-7">
-                    
-                    <div id="tab-expenses" class="tab-panel space-y-4">
-                        <div class="animate-pulse bg-slate-200 border-4 border-black h-20 shadow-comic mb-3"></div>
-                        <div class="animate-pulse bg-slate-200 border-4 border-black h-20 shadow-comic mb-3"></div>
-                    </div>
+      <!-- SETTLEMENTS TAB -->
+      <div class="tab-panel" id="panel-settlements">
+        <div class="section-header" style="margin-bottom:var(--space-4)">
+          <span class="section-title">Settlements</span>
+          <button class="btn btn-primary btn-sm" id="btn-create-settlement">+ Record Settlement</button>
+        </div>
+        <div id="settlements-list"></div>
+        <div id="settlements-empty" class="empty-state hidden" style="margin-top:var(--space-6)">No settlements yet.</div>
+      </div>
 
-                    <div id="tab-balances" class="tab-panel hidden">
-                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                            <div class="bg-white border-4 border-black p-4 shadow-comic text-center">
-                                <p class="font-black uppercase text-[9px] text-gray-500 mb-1">Total Spent</p>
-                                <p id="tab-bal-total" class="font-black text-xl">₹0</p>
-                            </div>
-                            <div class="bg-white border-4 border-black p-4 shadow-comic text-center">
-                                <p class="font-black uppercase text-[9px] text-gray-500 mb-1">Your Share</p>
-                                <p id="tab-bal-share" class="font-black text-xl">₹0</p>
-                            </div>
-                            <div class="bg-white border-4 border-black p-4 shadow-comic text-center">
-                                <p class="font-black uppercase text-[9px] text-gray-500 mb-1">You Paid</p>
-                                <p id="tab-bal-paid" class="font-black text-xl">₹0</p>
-                            </div>
-                        </div>
-                        <div id="tab-bal-list" class="space-y-3"></div>
-                    </div>
+      <!-- MEMBERS TAB -->
+      <div class="tab-panel" id="panel-members">
+        <div class="section-header" style="margin-bottom:var(--space-4)">
+          <span class="section-title">Members</span>
+          <button class="btn btn-outline btn-sm" id="btn-add-member">+ Add Member</button>
+        </div>
+        <div id="members-list"></div>
+        <div class="card" style="margin-top:var(--space-6)" id="invite-code-card">
+          <div class="card-header"><span class="card-title">Share Invite Code</span></div>
+          <div style="display:flex;align-items:center;gap:var(--space-4);flex-wrap:wrap">
+            <span class="mono text-2xl fw-700" id="invite-code-display">——</span>
+            <button class="btn btn-outline btn-sm" id="btn-copy-invite">Copy</button>
+            <button class="btn btn-ghost btn-sm" id="btn-regen-invite">Regenerate</button>
+          </div>
+        </div>
+      </div>
 
-                    <div id="tab-charts" class="tab-panel hidden space-y-6">
-                        <div class="bg-white border-4 border-black shadow-comic p-6">
-                            <h3 class="font-black uppercase text-xs tracking-widest text-gray-500 mb-4">Monthly Spending</h3>
-                            <canvas id="monthly-chart" height="200"></canvas>
-                        </div>
-                        <div class="bg-white border-4 border-black shadow-comic p-6">
-                            <h3 class="font-black uppercase text-xs tracking-widest text-gray-500 mb-4">Who's Been Paying</h3>
-                            <canvas id="member-chart" height="150"></canvas>
-                        </div>
-                    </div>
+    </main>
+  </div>
+  <div id="bottom-nav"></div>
+</div>
 
-                    <div id="tab-settings" class="tab-panel hidden space-y-6">
-                        <div id="admin-settings-container" class="space-y-6 hidden">
-                            <div class="bg-white border-4 border-black shadow-comic p-6">
-                                <h3 class="font-black uppercase text-xs tracking-widest text-gray-500 mb-4">Edit Squad</h3>
-                                <input id="edit-group-name" type="text" class="w-full border-4 border-black p-3 font-black uppercase outline-none focus:bg-yellow-50 mb-3" placeholder="SQUAD NAME">
-                                <textarea id="edit-group-desc" class="w-full border-4 border-black p-3 font-bold text-sm outline-none focus:bg-yellow-50 resize-none h-24 mb-4" placeholder="Description..."></textarea>
-                                <button id="save-group-btn" class="bg-lime-300 border-4 border-black px-6 py-3 font-black uppercase text-sm shadow-comic hover:-translate-y-1 active:translate-y-1 active:shadow-none transition-all">Save Changes</button>
-                            </div>
-
-                            <div class="bg-white border-4 border-black shadow-comic p-6">
-                                <h3 class="font-black uppercase text-xs tracking-widest text-gray-500 mb-4">Manage Members</h3>
-                                <div class="relative mb-4">
-                                    <input id="member-search" type="text" placeholder="SEARCH BY USERNAME..." class="w-full border-4 border-black p-3 font-black uppercase text-sm outline-none focus:bg-yellow-50">
-                                    <div id="search-results" class="hidden absolute top-full left-0 right-0 bg-white border-4 border-t-0 border-black z-10 max-h-48 overflow-y-auto shadow-comic"></div>
-                                </div>
-                                <div id="members-list" class="space-y-2"></div>
-                            </div>
-
-                            <div class="bg-blue-300 border-4 border-black shadow-comic p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                <div>
-                                    <h3 class="font-black uppercase text-xs tracking-widest mb-2">Invite Code</h3>
-                                    <div class="flex items-center gap-3">
-                                        <span id="invite-code-display" class="font-black text-2xl md:text-3xl tracking-[0.3em] bg-white border-2 border-black px-4 py-2 uppercase">LOADING</span>
-                                    </div>
-                                </div>
-                                <button id="copy-code-btn" class="bg-black text-white border-2 border-black px-6 py-3 font-black uppercase text-sm hover:bg-gray-800 transition-colors shadow-comic-sm">Copy Code</button>
-                            </div>
-
-                            <div class="bg-white border-4 border-red-600 shadow-comic p-6">
-                                <h3 class="font-black uppercase text-xs tracking-widest text-red-600 mb-4">Danger Zone</h3>
-                                <p class="font-bold text-xs uppercase text-gray-500 mb-4">Deleting this squad is permanent and cannot be undone.</p>
-                                <button id="delete-group-btn" class="bg-pink-400 border-4 border-black px-6 py-3 font-black uppercase text-sm shadow-comic hover:-translate-y-1 active:translate-y-1 active:shadow-none transition-all">Delete Squad</button>
-                            </div>
-                        </div>
-                        
-                        <div id="readonly-settings-container" class="space-y-6 hidden">
-                            <div class="bg-white border-4 border-black shadow-comic p-6">
-                                <h3 class="font-black uppercase text-xs tracking-widest text-gray-500 mb-4">Squad Info</h3>
-                                <p id="ro-group-name" class="font-black uppercase text-2xl mb-2"></p>
-                                <p id="ro-group-desc" class="font-bold text-sm text-gray-600 mb-6"></p>
-                                <h3 class="font-black uppercase text-xs tracking-widest text-gray-500 mb-4">Members</h3>
-                                <div id="ro-members-list" class="space-y-2"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="lg:col-span-5">
-                    <div class="sticky top-6 space-y-6">
-                        
-                        <div class="bg-purple-400 border-4 border-black shadow-comic p-6">
-                            <h3 class="font-black uppercase text-[10px] tracking-widest text-white mb-3">Your Balance</h3>
-                            <div id="my-group-balance" class="text-4xl font-black tracking-tighter bg-white border-4 border-black px-4 py-3 shadow-comic-sm text-center mb-3 text-gray-400">
-                                ₹0.00
-                            </div>
-                            <p id="my-group-balance-label" class="font-black uppercase text-[10px] tracking-widest text-center text-white">LOADING...</p>
-                        </div>
-
-                        <div class="bg-white border-4 border-black shadow-comic p-6">
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 class="font-black uppercase text-[10px] tracking-widest text-gray-500">Group Balances</h3>
-                                <button data-tab-target="balances" class="font-black text-[9px] uppercase underline decoration-2 underline-offset-4 hover:text-purple-600 transition-colors">View Details</button>
-                            </div>
-                            <div id="right-balances-list" class="space-y-3"></div>
-                        </div>
-
-                        <div class="bg-lime-300 border-4 border-black shadow-comic p-6">
-                            <h3 class="font-black uppercase text-[10px] tracking-widest mb-3">Squad Stats</h3>
-                            <div class="space-y-2">
-                                <div class="flex justify-between items-center border-b-2 border-black border-dashed pb-1">
-                                    <span class="font-bold text-[10px] uppercase text-gray-800">Total Expenses</span>
-                                    <span class="font-black text-xs" id="stat-expense-count">-</span>
-                                </div>
-                                <div class="flex justify-between items-center border-b-2 border-black border-dashed pb-1">
-                                    <span class="font-bold text-[10px] uppercase text-gray-800">Total Spent</span>
-                                    <span class="font-black text-xs" id="stat-total-spent">-</span>
-                                </div>
-                                <div class="flex justify-between items-center border-b-2 border-black border-dashed pb-1">
-                                    <span class="font-bold text-[10px] uppercase text-gray-800">Top Payer</span>
-                                    <span class="font-black text-xs" id="stat-top-payer">-</span>
-                                </div>
-                                <div class="flex justify-between items-center">
-                                    <span class="font-bold text-[10px] uppercase text-gray-800">Created</span>
-                                    <span class="font-black text-xs" id="stat-created">-</span>
-                                </div>
-                            </div>
-                        </div>
-
-                    </div>
-                </div>
-
-            </div>
-        </main>
+<!-- Add/Edit Expense Modal -->
+<div class="modal-overlay" id="modal-expense" hidden>
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="expense-modal-title">Add Expense</span>
+      <button class="modal-close" aria-label="Close">✕</button>
     </div>
-
-    <div id="modal-backdrop" class="fixed inset-0 bg-black/80 z-40 hidden backdrop-blur-sm"></div>
-
-    <div id="modal-add-expense" class="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-xl bg-white border-4 border-black shadow-comic z-50 p-6 hidden flex-col max-h-[90vh] overflow-y-auto">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="font-black uppercase text-2xl tracking-tighter">Add Expense</h2>
-            <button id="close-expense-modal" class="p-1 hover:bg-pink-400 border-2 border-transparent hover:border-black transition-colors"><i data-lucide="x" stroke-width="4"></i></button>
+    <div class="modal-body">
+      <div class="grid-2" style="gap:var(--space-4)">
+        <div class="form-group">
+          <label class="form-label" for="exp-title">Title</label>
+          <input class="form-input" type="text" id="exp-title" placeholder="Dinner at restaurant">
+          <span class="form-error" id="exp-title-error"></span>
         </div>
-
-        <div class="flex gap-0 border-4 border-black mb-6 w-fit">
-            <div id="step-1-ind" class="bg-black text-white px-4 py-2 font-black uppercase text-xs">1. Details</div>
-            <div id="step-2-ind" class="bg-white text-black px-4 py-2 font-black uppercase text-xs border-l-4 border-black">2. Split</div>
-            <div id="step-3-ind" class="bg-white text-black px-4 py-2 font-black uppercase text-xs border-l-4 border-black">3. Review</div>
+        <div class="form-group">
+          <label class="form-label" for="exp-amount">Amount</label>
+          <input class="form-input" type="number" id="exp-amount" placeholder="0.00" min="0.01" step="0.01">
+          <span class="form-error" id="exp-amount-error"></span>
         </div>
-
-        <div id="modal-step-1" class="space-y-4">
-            <input id="exp-title" type="text" placeholder="EXPENSE NAME (e.g. DINNER)" class="w-full border-4 border-black p-3 font-black uppercase outline-none focus:bg-yellow-50">
-            <div class="border-4 border-black flex items-center bg-white shadow-comic-sm">
-            <span class="px-3 font-black text-lg border-r-4 border-black">₹</span>
-                <input id="exp-amount" type="number" placeholder="0.00" class="w-full p-3 font-black text-lg outline-none focus:bg-yellow-50">
-            </div>
-            <div>
-                <label class="font-black uppercase text-[10px] tracking-widest block mb-1">Paid By</label>
-                <select id="exp-paid-by" class="w-full border-4 border-black p-3 font-black uppercase outline-none focus:bg-yellow-50"></select>
-            </div>
-            <div>
-                <label class="font-black uppercase text-[10px] tracking-widest block mb-2">Category</label>
-                <div class="grid grid-cols-5 gap-2" id="category-selector">
-                    <button class="cat-btn border-4 border-black p-2 bg-yellow-300 shadow-comic flex flex-col items-center gap-1" data-cat="FOOD"><i data-lucide="utensils" stroke-width="3" class="w-4 h-4"></i><span class="font-black text-[7px] uppercase">Food</span></button>
-                    <button class="cat-btn border-4 border-black p-2 bg-white hover:bg-yellow-50 flex flex-col items-center gap-1" data-cat="TRAVEL"><i data-lucide="car" stroke-width="3" class="w-4 h-4"></i><span class="font-black text-[7px] uppercase">Travel</span></button>
-                    <button class="cat-btn border-4 border-black p-2 bg-white hover:bg-yellow-50 flex flex-col items-center gap-1" data-cat="HOUSING"><i data-lucide="home" stroke-width="3" class="w-4 h-4"></i><span class="font-black text-[7px] uppercase">Housing</span></button>
-                    <button class="cat-btn border-4 border-black p-2 bg-white hover:bg-yellow-50 flex flex-col items-center gap-1" data-cat="ENTERTAINMENT"><i data-lucide="film" stroke-width="3" class="w-4 h-4"></i><span class="font-black text-[7px] uppercase">Fun</span></button>
-                    <button class="cat-btn border-4 border-black p-2 bg-white hover:bg-yellow-50 flex flex-col items-center gap-1" data-cat="OTHER"><i data-lucide="receipt" stroke-width="3" class="w-4 h-4"></i><span class="font-black text-[7px] uppercase">Other</span></button>
-                </div>
-            </div>
-            <button id="step-1-next" class="w-full bg-yellow-300 border-4 border-black p-3 font-black uppercase shadow-comic hover:-translate-y-1 transition-all mt-4">Next: Choose Split →</button>
+        <div class="form-group">
+          <label class="form-label" for="exp-category">Category</label>
+          <div class="select-wrapper">
+            <select class="form-select" id="exp-category">
+              <option value="FOOD">Food</option>
+              <option value="TRAVEL">Travel</option>
+              <option value="HOUSING">Housing</option>
+              <option value="ENTERTAINMENT">Entertainment</option>
+              <option value="UTILITIES">Utilities</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
         </div>
-
-        <div id="modal-step-2" class="hidden space-y-4">
-            <div class="grid grid-cols-4 gap-2" id="split-type-selector">
-                <button class="split-type-btn border-4 border-black p-2 font-black uppercase text-[10px] bg-black text-white shadow-comic" data-type="EQUAL"><i data-lucide="users" class="w-4 h-4 mx-auto mb-1"></i>Equal</button>
-                <button class="split-type-btn border-4 border-black p-2 font-black uppercase text-[10px] bg-white hover:bg-yellow-50" data-type="EXACT"><i data-lucide="hash" class="w-4 h-4 mx-auto mb-1"></i>Exact</button>
-                <button class="split-type-btn border-4 border-black p-2 font-black uppercase text-[10px] bg-white hover:bg-yellow-50" data-type="PERCENT"><i data-lucide="percent" class="w-4 h-4 mx-auto mb-1"></i>Percent</button>
-                <button class="split-type-btn border-4 border-black p-2 font-black uppercase text-[10px] bg-white hover:bg-yellow-50" data-type="ITEM"><i data-lucide="shopping-cart" class="w-4 h-4 mx-auto mb-1"></i>Item</button>
-            </div>
-            <div id="split-inputs-container" class="space-y-2 mt-4 max-h-48 overflow-y-auto pr-2"></div>
-            <div id="split-tracker" class="text-right font-black uppercase text-xs mt-2 text-red-600 hidden"></div>
-            <div class="flex gap-3 mt-4">
-                <button id="step-2-back" class="flex-1 bg-white border-4 border-black p-3 font-black uppercase hover:bg-slate-100">← Back</button>
-                <button id="step-2-next" class="flex-1 bg-yellow-300 border-4 border-black p-3 font-black uppercase shadow-comic hover:-translate-y-1 transition-all">Review →</button>
-            </div>
+        <div class="form-group">
+          <label class="form-label" for="exp-date">Date</label>
+          <input class="form-input" type="date" id="exp-date">
         </div>
-
-        <div id="modal-step-3" class="hidden space-y-4">
-            <div id="review-summary" class="bg-blue-50 border-4 border-black p-4 space-y-2"></div>
-            <div class="flex gap-3 mt-4">
-                <button id="step-3-back" class="flex-1 bg-white border-4 border-black p-3 font-black uppercase hover:bg-slate-100">← Back</button>
-                <button id="submit-expense-btn" class="flex-1 bg-lime-300 border-4 border-black p-3 font-black uppercase shadow-comic hover:-translate-y-1 transition-all">Add Expense ✓</button>
-            </div>
+        <div class="form-group">
+          <label class="form-label" for="exp-currency">Currency</label>
+          <div class="select-wrapper">
+            <select class="form-select" id="exp-currency">
+              <option value="INR">INR</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </div>
         </div>
+        <div class="form-group">
+          <label class="form-label" for="exp-paid-by">Paid By</label>
+          <div class="select-wrapper">
+            <select class="form-select" id="exp-paid-by"></select>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Split Type</label>
+        <div class="split-selector" id="exp-split-selector">
+          <button type="button" class="split-pill active" data-split="EQUAL">Equal</button>
+          <button type="button" class="split-pill" data-split="EXACT">Exact</button>
+          <button type="button" class="split-pill" data-split="PERCENT">Percent</button>
+          <button type="button" class="split-pill" data-split="ITEM">By Item</button>
+        </div>
+      </div>
+      <!-- Dynamic split section -->
+      <div id="exp-split-section"></div>
+      <div class="form-group">
+        <label class="form-label" for="exp-notes">Notes (optional)</label>
+        <textarea class="form-textarea" id="exp-notes" placeholder="Any extra details…"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="exp-receipt">Receipt URL (optional)</label>
+        <input class="form-input" type="url" id="exp-receipt" placeholder="https://…">
+      </div>
+      <span class="form-error" id="exp-global-error"></span>
     </div>
-
-    <script type="module">
-        import { api } from './js/core/api.js';
-        import { auth } from './js/core/auth.js';
-        import { ui } from './js/core/ui.js';
-        import { utils } from './js/core/utils.js';
-
-        // --- STATE ---
-        const groupId = new URLSearchParams(window.location.search).get('id');
-        const AppState = {
-            currentUser: null, group: null, members: [], expenses: [], settlements: [], computedBalances: [],
-            avatarColors: ['bg-pink-400', 'bg-yellow-300', 'bg-lime-400', 'bg-blue-400', 'bg-purple-400'],
-            isSimplified: false,
-            suggestedPayments: []
-        };
-        window.expenseFormState = { step: 1, title: '', amount: 0, date: '', category: 'FOOD', paid_by: null, split_type: 'EQUAL', split_data: [], split_items: [] };
-
-        // --- MATH HELPERS ---
-        function round2(value) { return Math.round(parseFloat(value || 0) * 100) / 100; }
-        function resolveUsername(username, userId) {
-            if (username && String(username).trim() !== '') return username;
-            if (userId) return `User #${userId}`;
-            return 'Deleted User';
-        }
-
-        // --- INIT ---
-        window.addEventListener('DOMContentLoaded', () => {
-            if (!groupId) { window.location.href = 'groups.html'; return; }
-            auth.checkAuthAndRedirect();
-            setupEventListeners();
-            loadPageData();
-            lucide.createIcons();
-        });
-
-        // --- DATA LAYER ---
-        async function loadPageData() {
-            try {
-                const [user, groupRes, allExpenses, allSettlements, suggestedRes] = await Promise.all([
-                    api.request('/api/users/me/'),
-                    api.request(`/api/groups/${groupId}/`),
-                    api.request('/api/expenses/'), 
-                    api.request('/api/settlements/'),
-                    api.request(`/api/expenses/suggested-settlements/${groupId}/`)
-                ]);
-
-                const expenses = allExpenses.filter(e => e.group === parseInt(groupId));
-                const settlements = allSettlements.filter(s => s.group === parseInt(groupId));
-
-                AppState.currentUser = user;
-                AppState.group = groupRes;
-                AppState.members = groupRes.members || [];
-                AppState.expenses = expenses;
-                AppState.settlements = settlements;
-                AppState.computedBalances = computeGroupBalances(expenses, settlements, user.id, AppState.members);
-                AppState.suggestedPayments = suggestedRes?.suggested_payments || [];
-
-                renderHeader(); renderExpensesTab(); renderBalancesTab(); renderChartsTab(); renderSettingsTab(); renderRightPanel();
-                lucide.createIcons();
-            } catch (err) { showAlert('Failed to load group. Check connection.', 'error'); }
-        }
-
-        // --- MATH ENGINE ---
-        function computeGroupBalances(expenses, settlements, currentUserId, members) {
-            const currId = String(currentUserId);
-            const balanceMap = {};
-            
-            members.forEach(m => {
-                if (String(m.id) !== currId) balanceMap[String(m.id)] = { username: resolveUsername(m.username, m.id), netAmount: 0 };
-            });
-
-            function ensureEntry(userId, username) {
-                const uid = String(userId);
-                if (!balanceMap[uid]) balanceMap[uid] = { username: resolveUsername(username, userId), netAmount: 0 };
-            }
-
-            expenses.forEach(exp => {
-                const payerId = String(exp.paid_by);
-                const payerName = resolveUsername(exp.paid_by_username, exp.paid_by);
-
-                if (!exp.splits || !Array.isArray(exp.splits)) return;
-
-                exp.splits.forEach(split => {
-                    const owerId = String(split.user);
-                    const owerName = resolveUsername(split.username, split.user);
-                    const amount = round2(split.amount_owed);
-
-                    if (amount <= 0) return;
-
-                    if (payerId === currId && owerId !== currId) {
-                        ensureEntry(owerId, owerName);
-                        balanceMap[owerId].netAmount = round2(balanceMap[owerId].netAmount + amount);
-                    } else if (owerId === currId && payerId !== currId) {
-                        ensureEntry(payerId, payerName);
-                        balanceMap[payerId].netAmount = round2(balanceMap[payerId].netAmount - amount);
-                    }
-                });
-            });
-
-            settlements.forEach(s => {
-                if (s.status.toUpperCase() !== 'CONFIRMED') return;
-
-                const amount = round2(s.amount);
-                if (amount <= 0) return;
-
-                const payerId = String(s.payer);
-                const payerName = resolveUsername(s.payer_username, s.payer);
-                const receiverId = String(s.receiver);
-                const receiverName = resolveUsername(s.receiver_username, s.receiver);
-
-                if (receiverId === currId && payerId !== currId) {
-                    ensureEntry(payerId, payerName);
-                    balanceMap[payerId].netAmount = round2(balanceMap[payerId].netAmount - amount);
-                } else if (payerId === currId && receiverId !== currId) {
-                    ensureEntry(receiverId, receiverName);
-                    balanceMap[receiverId].netAmount = round2(balanceMap[receiverId].netAmount + amount);
-                }
-            });
-
-            return Object.entries(balanceMap).map(([id, data]) => ({ id, username: data.username, netAmount: round2(data.netAmount) }));
-        }
-
-        function getMyPosition(expense, currentUserId) {
-            const payerId = String(expense.paid_by);
-            const currId = String(currentUserId);
-
-            if (!expense.splits || expense.splits.length === 0) return { label: 'NO SPLITS', amount: 0, color: 'text-gray-400' };
-
-            if (payerId === currId) {
-                let lent = 0;
-                expense.splits.forEach(split => { if (String(split.user) !== currId) lent = round2(lent + round2(split.amount_owed)); });
-                if (lent > 0.01) return { label: 'YOU LENT', amount: lent, color: 'text-blue-600' };
-                return { label: 'SOLO', amount: 0, color: 'text-gray-400' };
-            } else {
-                const mySplit = expense.splits.find(s => String(s.user) === currId);
-                if (!mySplit) return { label: 'NOT INVOLVED', amount: 0, color: 'text-gray-400' };
-                
-                const owed = round2(mySplit.amount_owed);
-                if (owed > 0.01) return { label: 'YOU OWE', amount: owed, color: 'text-red-600' };
-                return { label: 'SETTLED', amount: 0, color: 'text-green-600' };
-            }
-        }
-
-        // --- RENDERERS ---
-        function renderHeader() {
-            document.getElementById('group-name-heading').textContent = AppState.group.name.toUpperCase();
-            document.getElementById('group-meta').textContent = `${AppState.members.length} MEMBERS \u00B7 CREATED ${new Date(AppState.group.created_at || Date.now()).getFullYear()}`;
-            document.getElementById('top-invite-code').textContent = AppState.group.invite_code || '---';
-        }
-
-        function renderExpensesTab() {
-            const container = document.getElementById('tab-expenses');
-            const normalizedExpenses = AppState.expenses.map(e => ({ ...e, _type: 'expense', _sortDate: new Date(e.date || e.created_at) }));
-            const normalizedSettlements = AppState.settlements.map(s => ({ ...s, _type: 'settlement', _sortDate: new Date(s.created_at) }));
-            const unified = [...normalizedExpenses, ...normalizedSettlements].sort((a, b) => b._sortDate - a._sortDate);
-
-            if (unified.length === 0) {
-                container.innerHTML = `
-                    <div class="border-4 border-black border-dashed p-12 text-center bg-white shadow-comic">
-                        <p class="font-black uppercase text-lg tracking-widest mb-4">No Expenses Yet.</p>
-                        <p class="font-bold text-xs uppercase text-gray-500 mb-6">Add your first expense to get started!</p>
-                        <button onclick="document.getElementById('add-expense-btn').click()" class="bg-yellow-300 border-4 border-black px-6 py-3 font-black uppercase text-sm shadow-comic hover:-translate-y-1 active:translate-y-1 active:shadow-none transition-all">
-                            <i data-lucide="plus" stroke-width="4" class="w-4 h-4 inline mr-2"></i> Add First Expense
-                        </button>
-                    </div>`;
-                lucide.createIcons(); return;
-            }
-
-            const grouped = {};
-            unified.forEach(item => {
-                const key = item._sortDate.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }).toUpperCase();
-                if (!grouped[key]) grouped[key] = { items: [], total: 0 };
-                grouped[key].items.push(item);
-                if (item._type === 'expense') grouped[key].total += parseFloat(item.amount || 0);
-            });
-
-            let html = '';
-            for (const [month, data] of Object.entries(grouped)) {
-                html += `
-                    <div class="flex items-center gap-4 mb-4 mt-8 first:mt-0">
-                        <span class="font-black uppercase text-xs tracking-widest text-gray-500 whitespace-nowrap">${month}</span>
-                        <div class="flex-grow border-t-2 border-dashed border-black"></div>
-                        <span class="font-black text-[10px] uppercase text-gray-400">₹${utils.formatCurrency(data.total).replace('₹','')} total</span>
-                    </div>`;
-                data.items.forEach(item => {
-                    if (item._type === 'expense') {
-                        const pos = getMyPosition(item, AppState.currentUser.id);
-                        const canDelete = String(item.paid_by) === String(AppState.currentUser.id) || AppState.currentUser.id === AppState.group.admin;
-                        html += `
-                        <div class="expense-row bg-white border-4 border-black shadow-comic p-4 mb-3 cursor-pointer hover:-translate-y-1 transition-all group" onclick="toggleExpenseDetail(${item.id})">
-                            <div class="flex items-center gap-4">
-                                <div class="flex flex-col items-center justify-center bg-blue-50 border-2 border-black p-2 min-w-[40px]">
-                                    <span class="font-black text-lg leading-none">${item._sortDate.getDate()}</span>
-                                    <span class="font-black text-[8px] uppercase text-gray-500">${item._sortDate.toLocaleDateString('en-US', {month: 'short'}).toUpperCase()}</span>
-                                </div>
-                                <div class="bg-white border-2 border-black p-2 flex-shrink-0"><i data-lucide="receipt" stroke-width="3" class="w-4 h-4"></i></div>
-                                <div class="flex-grow min-w-0">
-                                    <p class="font-black uppercase text-sm truncate">${item.title}</p>
-                                    <div class="flex items-center gap-2 mt-1">
-                                        <span class="bg-blue-300 border border-black px-1.5 py-0.5 text-[8px] font-black uppercase">${AppState.group.name.substring(0,10)}</span>
-                                        <span class="font-bold text-[9px] uppercase text-gray-500">PAID BY ${item.paid_by_username || 'UNKNOWN'}</span>
-                                    </div>
-                                </div>
-                                <div class="text-right flex-shrink-0 ml-4">
-                                    <p class="font-black text-[9px] uppercase text-gray-500">${pos.label}</p>
-                                    <p class="font-black text-lg ${pos.color}">${utils.formatCurrency(pos.amount)}</p>
-                                </div>
-                                ${canDelete ? `<button class="opacity-0 group-hover:opacity-100 transition-opacity ml-2 p-1 hover:bg-pink-400 border-2 border-black" onclick="deleteExpense(${item.id}, event)"><i data-lucide="trash-2" stroke-width="3" class="w-3 h-3 text-black"></i></button>` : ''}
-                            </div>
-                            <div id="expense-detail-${item.id}" class="hidden mt-4 pt-4 border-t-4 border-black border-dashed"></div>
-                        </div>`;
-                    } else {
-                        const isReceiver = String(item.receiver) === String(AppState.currentUser.id);
-                        const isPending = item.status === 'PENDING' || item.status === 'pending';
-                        html += `
-                        <div class="bg-yellow-300 border-4 border-black shadow-comic p-4 mb-3 flex justify-between items-center">
-                            <div class="flex items-center gap-4">
-                                <div class="bg-white border-2 border-black p-2"><i data-lucide="${isPending ? 'circle' : 'check-circle'}" stroke-width="3" class="w-4 h-4 ${isPending ? 'text-gray-400' : 'text-green-600'}"></i></div>
-                                <div>
-                                    <p class="font-black uppercase text-xs">${item.payer_username || 'SOMEONE'} SETTLED UP</p>
-                                    <p class="font-black text-sm">${utils.formatCurrency(item.amount)}</p>
-                                    <div class="flex items-center gap-2 mt-1">
-                                        <span class="${isPending ? 'bg-white' : 'bg-lime-300'} border border-black px-1.5 py-0.5 text-[8px] font-black uppercase">${item.status}</span>
-                                        <span class="font-bold text-[9px] uppercase text-gray-600">${item._sortDate.toLocaleDateString()}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            ${(isPending && isReceiver) ? `<button onclick="confirmSettlement(${item.id})" class="bg-black text-white px-4 py-2 font-black uppercase text-[10px] hover:bg-gray-800 active:translate-y-1 transition-all shadow-comic-sm">Confirm <i data-lucide="check" class="w-3 h-3 inline"></i></button>` : ''}
-                        </div>`;
-                    }
-                });
-            }
-            container.innerHTML = html;
-        }
-
-        function renderBalancesTab() {
-            let totalSpent = 0; let myShare = 0; let myPaid = 0;
-            AppState.expenses.forEach(e => {
-                const amt = parseFloat(e.amount || 0);
-                totalSpent += amt;
-                if (String(e.paid_by) === String(AppState.currentUser.id)) myPaid += amt;
-                if (e.splits) {
-                    const split = e.splits.find(s => String(s.user) === String(AppState.currentUser.id));
-                    if(split) myShare += parseFloat(split.amount_owed || 0);
-                }
-            });
-
-            document.getElementById('tab-bal-total').textContent = utils.formatCurrency(totalSpent);
-            document.getElementById('tab-bal-share').textContent = utils.formatCurrency(myShare);
-            document.getElementById('tab-bal-paid').textContent = utils.formatCurrency(myPaid);
-
-            const listEl = document.getElementById('tab-bal-list');
-            let html = '';
-            AppState.computedBalances.forEach((bal, idx) => {
-                const color = AppState.avatarColors[idx % AppState.avatarColors.length];
-                let statusHtml = ''; let btnsHtml = '';
-                if (bal.netAmount > 0.01) {
-                    statusHtml = `<p class="font-black text-[10px] uppercase text-blue-600">OWES YOU ${utils.formatCurrency(bal.netAmount)}</p>`;
-                    btnsHtml = `<button onclick="remindUser('${bal.username}', ${bal.netAmount})" class="bg-white border-2 border-black px-3 py-1.5 font-black uppercase text-[9px] hover:bg-slate-100 active:translate-y-0.5 transition-all">Remind</button>
-                                <button onclick="openSettleModal(${bal.id}, ${bal.netAmount})" class="bg-lime-300 border-2 border-black px-3 py-1.5 font-black uppercase text-[9px] shadow-comic-sm hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none transition-all">Settle Up</button>`;
-                } else if (bal.netAmount < -0.01) {
-                    statusHtml = `<p class="font-black text-[10px] uppercase text-red-600">YOU OWE ${utils.formatCurrency(Math.abs(bal.netAmount))}</p>`;
-                    btnsHtml = `<button onclick="openSettleModal(${bal.id}, ${Math.abs(bal.netAmount)})" class="bg-lime-300 border-2 border-black px-3 py-1.5 font-black uppercase text-[9px] shadow-comic-sm hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none transition-all">Settle Up</button>`;
-                } else {
-                    statusHtml = `<p class="font-black text-[10px] uppercase text-green-600">ALL SETTLED <i data-lucide="check" class="w-3 h-3 inline"></i></p>`;
-                }
-
-                html += `
-                <div class="bg-white border-4 border-black shadow-comic p-4 mb-3 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full border-2 border-black ${color} flex items-center justify-center font-black text-sm">${bal.username.charAt(0).toUpperCase()}</div>
-                        <div><p class="font-black uppercase text-sm">${bal.username}</p>${statusHtml}</div>
-                    </div>
-                    <div class="flex gap-2">${btnsHtml}</div>
-                </div>`;
-            });
-            listEl.innerHTML = html;
-        }
-
-        function renderChartsTab() {
-            const monthMap = {}; const labels = []; const dataPoints = [];
-            const last6Months = [...Array(6)].map((_, i) => { const d = new Date(); d.setMonth(d.getMonth() - i); return d.toLocaleDateString('en-US', {month: 'short'}).toUpperCase(); }).reverse();
-            last6Months.forEach(m => monthMap[m] = 0);
-
-            AppState.expenses.forEach(e => {
-                const m = new Date(e.date || e.created_at).toLocaleDateString('en-US', {month: 'short'}).toUpperCase();
-                if(monthMap[m] !== undefined) monthMap[m] += parseFloat(e.amount || 0);
-            });
-            last6Months.forEach(m => { labels.push(m); dataPoints.push(monthMap[m]); });
-
-            const container1 = document.getElementById('monthly-chart').parentElement;
-            container1.innerHTML = `<h3 class="font-black uppercase text-xs tracking-widest text-gray-500 mb-4">Monthly Spending</h3><canvas id="monthly-chart" height="200"></canvas>`;
-            new Chart(document.getElementById('monthly-chart'), {
-                type: 'bar',
-                data: { labels: labels, datasets: [{ data: dataPoints, backgroundColor: '#FFE500', borderColor: '#000000', borderWidth: 3, borderRadius: 0 }] },
-                options: { plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { font: { family: 'Inter', weight: '900' }, color: '#000' } }, y: { grid: { color: '#e5e7eb' }, ticks: { font: { family: 'Inter', weight: '700' }, color: '#000' } } } }
-            });
-
-            const memLabels = []; const memData = [];
-            AppState.members.forEach(m => {
-                let paid = 0;
-                AppState.expenses.forEach(e => { if(String(e.paid_by) === String(m.id)) paid += parseFloat(e.amount || 0); });
-                memLabels.push(m.username.toUpperCase()); memData.push(paid);
-            });
-
-            const container2 = document.getElementById('member-chart').parentElement;
-            container2.innerHTML = `<h3 class="font-black uppercase text-xs tracking-widest text-gray-500 mb-4">Who's Been Paying</h3><canvas id="member-chart" height="150"></canvas>`;
-            new Chart(document.getElementById('member-chart'), {
-                type: 'bar',
-                data: { labels: memLabels, datasets: [{ data: memData, backgroundColor: AppState.avatarColors.map(c => c.replace('bg-','').split('-')[0] === 'pink' ? '#f472b6' : '#60a5fa'), borderColor: '#000000', borderWidth: 3 }] },
-                options: { indexAxis: 'y', plugins: { legend: { display: false } } }
-            });
-        }
-
-        function renderSettingsTab() {
-            const isAdmin = AppState.currentUser.id === AppState.group.admin;
-            if (isAdmin) {
-                document.getElementById('admin-settings-container').classList.remove('hidden');
-                document.getElementById('readonly-settings-container').classList.add('hidden');
-                
-                document.getElementById('edit-group-name').value = AppState.group.name;
-                document.getElementById('edit-group-desc').value = AppState.group.description || '';
-                document.getElementById('invite-code-display').textContent = AppState.group.invite_code || '---';
-
-                const mList = document.getElementById('members-list');
-                mList.innerHTML = AppState.members.map((m, idx) => `
-                    <div class="flex items-center justify-between p-2 bg-white border-2 border-black mb-2">
-                        <div class="flex items-center gap-3">
-                            <div class="w-7 h-7 rounded-full border-2 border-black ${AppState.avatarColors[idx % AppState.avatarColors.length]} flex items-center justify-center font-black text-xs">${m.username.charAt(0).toUpperCase()}</div>
-                            <span class="font-black uppercase text-xs">${m.username}</span>
-                            
-                            <span class="bg-blue-100 border border-black px-1.5 py-0.5 text-[8px] font-black tracking-widest ml-2">[ ${parseFloat(m.reliability_score || 70).toFixed(1)} TRUST ]</span>
-                            
-                            ${m.id === AppState.group.admin ? `<span class="bg-yellow-300 border border-black px-1 py-0.5 text-[8px] font-black uppercase">ADMIN</span>` : ''}
-                        </div>
-                        ${m.id !== AppState.currentUser.id ? `<button onclick="removeMember(${m.id})" class="bg-pink-400 border-2 border-black p-1 font-black text-xs hover:bg-red-500 transition-colors"><i data-lucide="x" stroke-width="4" class="w-3 h-3"></i></button>` : ''}
-                    </div>
-                `).join('');
-            } else {
-                document.getElementById('admin-settings-container').classList.add('hidden');
-                document.getElementById('readonly-settings-container').classList.remove('hidden');
-                
-                document.getElementById('ro-group-name').textContent = AppState.group.name;
-                document.getElementById('ro-group-desc').textContent = AppState.group.description || 'No description provided.';
-                
-                const roList = document.getElementById('ro-members-list');
-                roList.innerHTML = AppState.members.map((m, idx) => `
-                    <div class="flex items-center gap-2 p-2 bg-slate-50 border-2 border-black mb-2">
-                        <div class="w-7 h-7 rounded-full border-2 border-black ${AppState.avatarColors[idx % AppState.avatarColors.length]} flex items-center justify-center font-black text-xs">${m.username.charAt(0).toUpperCase()}</div>
-                        <span class="font-black uppercase text-xs">${m.username}</span>
-                        ${m.id === AppState.group.admin ? `<span class="bg-yellow-300 border border-black px-1 text-[7px] font-black uppercase">ADMIN</span>` : ''}
-                    </div>
-                `).join('');
-            }
-            lucide.createIcons();
-        }
-
-        window.toggleSimplify = () => {
-            AppState.isSimplified = !AppState.isSimplified;
-            renderRightPanel();
-        };
-
-        function renderRightPanel() {
-            let myNet = 0;
-            AppState.computedBalances.forEach(b => myNet += b.netAmount);
-            const balEl = document.getElementById('my-group-balance');
-            
-            balEl.textContent = utils.formatCurrency(Math.abs(myNet));
-            balEl.className = `text-4xl font-black tracking-tighter bg-white border-4 border-black px-4 py-3 shadow-comic-sm text-center mb-3 ${myNet > 0 ? 'text-blue-600' : (myNet < 0 ? 'text-red-600' : 'text-gray-400')}`;
-            document.getElementById('my-group-balance-label').textContent = myNet > 0 ? "YOU ARE OWED OVERALL" : (myNet < 0 ? "YOU OWE OVERALL" : "ALL SETTLED UP");
-
-            const rList = document.getElementById('right-balances-list');
-            
-            // The Toggle Switch UI
-            const toggleHtml = `
-                <div class="flex gap-1 mb-4 bg-slate-100 p-1 border-4 border-black w-full">
-                    <button onclick="toggleSimplify()" class="flex-1 px-2 py-1.5 font-black text-[10px] uppercase transition-all ${!AppState.isSimplified ? 'bg-black text-white shadow-comic-sm' : 'text-gray-500 hover:text-black'}">Raw Debts</button>
-                    <button onclick="toggleSimplify()" class="flex-1 px-2 py-1.5 font-black text-[10px] uppercase transition-all flex justify-center items-center gap-1 ${AppState.isSimplified ? 'bg-yellow-300 text-black border-2 border-black shadow-comic-sm' : 'text-gray-500 hover:text-black'}"><i data-lucide="zap" stroke-width="4" class="w-3 h-3"></i> Simplified</button>
-                </div>
-            `;
-
-            let listHtml = '';
-
-            // Render Based on Toggle State
-            if (!AppState.isSimplified) {
-                // Raw Debts
-                listHtml = AppState.computedBalances.map((bal, idx) => {
-                    const color = AppState.avatarColors[idx % AppState.avatarColors.length];
-                    let text = `<span class="font-black text-[10px] text-green-600">SETTLED <i data-lucide="check" class="inline w-3 h-3"></i></span>`;
-                    if(bal.netAmount > 0.01) text = `<span class="font-black text-[10px] text-blue-600">OWES YOU ${utils.formatCurrency(bal.netAmount)}</span>`;
-                    if(bal.netAmount < -0.01) text = `<span class="font-black text-[10px] text-red-600">YOU OWE ${utils.formatCurrency(Math.abs(bal.netAmount))}</span>`;
-                    return `
-                    <div class="flex items-center justify-between mb-3 last:mb-0">
-                        <div class="flex items-center gap-2">
-                            <div class="w-7 h-7 rounded-full border-2 border-black ${color} flex items-center justify-center font-black text-xs">${bal.username.charAt(0).toUpperCase()}</div>
-                            <span class="font-black uppercase text-[10px]">${bal.username}</span>
-                        </div>
-                        ${text}
-                    </div>`;
-                }).join('');
-            } else {
-                // Optimized Debts
-                if (!AppState.suggestedPayments || AppState.suggestedPayments.length === 0) {
-                    listHtml = `<div class="text-center p-4 border-2 border-black border-dashed bg-white"><p class="font-black uppercase text-[10px] text-gray-500">Graph is fully optimized ✓</p></div>`;
-                } else {
-                    listHtml = AppState.suggestedPayments.map(p => `
-                        <div class="bg-purple-100 border-2 border-black p-3 mb-2 flex justify-between items-center shadow-comic-sm cursor-pointer hover:-translate-y-0.5 transition-transform" 
-                             onclick="openSettleModal(${AppState.members.find(m => m.username === p.to)?.id}, ${p.amount})">
-                            <div class="min-w-0">
-                                <p class="font-black text-[10px] uppercase truncate">${p.from} <span class="text-gray-400 mx-1">→</span> ${p.to}</p>
-                            </div>
-                            <span class="font-black text-xs text-purple-800 ml-2 border-b-2 border-purple-800">₹${p.amount.toFixed(2)}</span>
-                        </div>
-                    `).join('');
-                }
-            }
-
-            rList.innerHTML = toggleHtml + listHtml;
-
-            // Stats Block Updates
-            document.getElementById('stat-expense-count').textContent = AppState.expenses.length;
-            document.getElementById('stat-total-spent').textContent = utils.formatCurrency(AppState.expenses.reduce((a,b)=>a+parseFloat(b.amount||0), 0));
-            
-            let payerTotals = {};
-            AppState.expenses.forEach(e => {
-                const payer = e.paid_by_username || 'Unknown';
-                payerTotals[payer] = (payerTotals[payer] || 0) + parseFloat(e.amount || 0);
-            });
-            let topPayerName = '-'; let maxSpent = 0;
-            for (const [payer, total] of Object.entries(payerTotals)) {
-                if (total > maxSpent) { maxSpent = total; topPayerName = payer; }
-            }
-            document.getElementById('stat-top-payer').textContent = topPayerName;
-            document.getElementById('stat-created').textContent = new Date(AppState.group.created_at || Date.now()).toLocaleDateString();
-
-            lucide.createIcons();
-        }
-
-        // --- WIZARD HELPER FUNCTIONS ---
-        function openExpenseModal() {
-        window.expenseFormState = { step: 1, title: '', amount: 0, date: new Date().toISOString().split('T')[0], category: 'FOOD', paid_by: AppState.currentUser.id, split_type: 'EQUAL', split_data: [], split_items: [] };
-        
-        document.getElementById('exp-title').value = ''; 
-        document.getElementById('exp-amount').value = ''; 
-        
-        document.getElementById('exp-paid-by').innerHTML = AppState.members.map(m => `<option value="${m.id}" ${m.id === AppState.currentUser.id ? 'selected' : ''}>${m.username.toUpperCase()} ${m.id === AppState.currentUser.id ? '(YOU)' : ''}</option>`).join('');
-        
-        goToExpenseStep(1);
-        document.getElementById('modal-backdrop').classList.remove('hidden');
-        document.getElementById('modal-add-expense').classList.remove('hidden');
-        document.getElementById('modal-add-expense').classList.add('flex');
-}
-
-        // --- NEW ITEM HELPERS ---
-        window.addSplitItem = () => {
-            window.expenseFormState.split_items.push({ 
-                name: '', 
-                amount: '', 
-                user_ids: [...AppState.members.map(m => m.id)] 
-            });
-            renderSplitInputs();
-        };
-
-        window.setItemUsers = (idx, selectElement) => {
-            const selectedOptions = Array.from(selectElement.selectedOptions);
-            window.expenseFormState.split_items[idx].user_ids = selectedOptions.map(opt => parseInt(opt.value));
-            updateItemMath();
-        };
-
-        window.updateItemMath = () => {
-            const tracker = document.getElementById('split-tracker');
-            const amt = window.expenseFormState.amount;
-            let sum = 0;
-            window.expenseFormState.split_items.forEach(item => {
-                sum += parseFloat(item.amount || 0);
-            });
-            tracker.innerText = `Items Total: ₹${sum.toFixed(2)} / Bill Total: ₹${amt.toFixed(2)}`;
-            tracker.className = `text-right font-black uppercase text-xs mt-2 ${Math.abs(sum - amt) < 0.01 ? 'text-green-600' : 'text-red-600'}`;
-        };
-
-        window.removeSplitItem = (idx) => {
-            window.expenseFormState.split_items.splice(idx, 1);
-            renderSplitInputs();
-        };
-
-        function closeExpenseModal() {
-            document.getElementById('modal-backdrop').classList.add('hidden');
-            document.getElementById('modal-add-expense').classList.add('hidden');
-            document.getElementById('modal-add-expense').classList.remove('flex');
-        }
-
-        function goToExpenseStep(step) {
-            window.expenseFormState.step = step;
-            [1, 2, 3].forEach(s => {
-                document.getElementById(`modal-step-${s}`).classList.add('hidden');
-                document.getElementById(`step-${s}-ind`).className = s === step ? 'bg-black text-white px-4 py-2 font-black uppercase text-xs' : 'bg-white text-black px-4 py-2 font-black uppercase text-xs border-l-4 border-black';
-            });
-            document.getElementById(`modal-step-${step}`).classList.remove('hidden');
-            if (step === 2) renderSplitInputs();
-            if (step === 3) renderExpenseReview();
-        }
-
-        function renderSplitInputs() {
-            const container = document.getElementById('split-inputs-container');
-            const tracker = document.getElementById('split-tracker');
-            const amt = window.expenseFormState.amount;
-            
-            if (window.expenseFormState.split_type === 'EQUAL') {
-                tracker.classList.add('hidden');
-                container.innerHTML = AppState.members.map(m => `
-                    <div class="flex justify-between items-center bg-blue-50 border-4 border-black p-3 mb-2">
-                        <span class="font-black uppercase text-xs">${m.username}</span>
-                        <span class="font-black text-sm">₹${(amt / AppState.members.length).toFixed(2)}</span>
-                    </div>`).join('');
-
-            } else if (window.expenseFormState.split_type === 'ITEM') {
-                tracker.classList.remove('hidden');
-                if (window.expenseFormState.split_items.length === 0) window.addSplitItem();
-                
-                let html = window.expenseFormState.split_items.map((item, idx) => {
-                    let userOptions = AppState.members.map(m => `
-                        <option value="${m.id}" ${item.user_ids.includes(m.id) ? 'selected' : ''} class="font-bold py-1 px-2 border-b border-black border-dashed last:border-0 checked:bg-lime-300">
-                            ${m.username.toUpperCase()}
-                        </option>`).join('');
-                    
-                    return `
-                    <div class="bg-blue-50 border-4 border-black p-4 mb-4 relative shadow-comic-sm">
-                        ${idx > 0 ? `<button onclick="removeSplitItem(${idx})" class="absolute -top-3 -right-3 bg-pink-400 border-2 border-black w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-500"><i data-lucide="x" class="w-3 h-3 text-black" stroke-width="4"></i></button>` : ''}
-                        <div class="flex gap-2 mb-4">
-                            <input type="text" placeholder="Item Name" value="${item.name}" 
-                                oninput="window.expenseFormState.split_items[${idx}].name = this.value" 
-                                class="w-2/3 border-4 border-black p-2 font-black uppercase text-xs outline-none focus:bg-yellow-50">
-                            <input type="number" placeholder="₹0.00" value="${item.amount}" 
-                                oninput="window.expenseFormState.split_items[${idx}].amount = this.value; updateItemMath();" 
-                                class="w-1/3 border-4 border-black p-2 font-black uppercase text-xs outline-none focus:bg-yellow-50">
-                        </div>
-                        <div>
-                            <label class="font-black text-[9px] uppercase text-gray-500 mb-1 block">Shared By (Hold Ctrl/Cmd to toggle)</label>
-                            <select multiple onchange="setItemUsers(${idx}, this)" class="w-full border-4 border-black bg-white font-black uppercase text-[10px] h-24 outline-none">
-                                ${userOptions}
-                            </select>
-                        </div>
-                    </div>`;
-                }).join('');
-                
-                html += `<button onclick="addSplitItem()" class="w-full bg-white border-4 border-black border-dashed p-3 font-black uppercase text-xs hover:bg-slate-50 transition-colors mb-2">+ Add Item</button>`;
-                container.innerHTML = html;
-                updateItemMath();
-                lucide.createIcons();
-
-            } else {
-                tracker.classList.remove('hidden');
-                const isExact = window.expenseFormState.split_type === 'EXACT';
-                container.innerHTML = AppState.members.map(m => `
-                    <div class="flex items-center bg-white border-4 border-black p-2 mb-2">
-                        <span class="font-black uppercase text-xs w-1/2 pl-2">${m.username}</span>
-                        <div class="flex items-center border-l-4 border-black w-1/2">
-                            <span class="font-black px-2">${isExact ? '₹' : '%'}</span>
-                            <input type="number" step="0.01" class="split-val-input w-full p-2 font-black outline-none" data-uid="${m.id}" placeholder="0">
-                        </div>
-                    </div>`).join('');
-                
-                const inputs = document.querySelectorAll('.split-val-input');
-                inputs.forEach(input => input.addEventListener('input', () => {
-                    let sum = 0; inputs.forEach(i => sum += parseFloat(i.value || 0));
-                    const target = isExact ? amt : 100; const symbol = isExact ? '₹' : '%';
-                    tracker.innerText = `Total: ${symbol}${sum.toFixed(2)} / ${symbol}${target.toFixed(2)}`;
-                    tracker.className = `text-right font-black uppercase text-xs mt-2 ${Math.abs(sum - target) < 0.01 ? 'text-green-600' : 'text-red-600'}`;
-                }));
-            }
-        }
-
-        function renderExpenseReview() {
-            const payer = AppState.members.find(m => String(m.id) === String(window.expenseFormState.paid_by));
-            let splitsHtml = '';
-            
-            if (window.expenseFormState.split_type === 'EQUAL') {
-                splitsHtml = '<p class="font-black uppercase text-xs mt-2">SPLIT EQUALLY</p>';
-            } else if (window.expenseFormState.split_type === 'ITEM') {
-                splitsHtml = window.expenseFormState.split_items.map(i => {
-                    const users = i.user_ids.map(uid => AppState.members.find(m=>m.id === uid).username).join(', ');
-                    return `<div class="flex flex-col border-b-2 border-black border-dashed py-2 last:border-0"><div class="flex justify-between font-black text-xs uppercase mb-1"><span>${i.name}</span><span>₹${parseFloat(i.amount).toFixed(2)}</span></div><span class="font-bold text-[9px] uppercase text-gray-500">Shared by: ${users}</span></div>`;
-                }).join('');
-            } else {
-                splitsHtml = window.expenseFormState.split_data.map(sd => {
-                    const u = AppState.members.find(m => m.id === sd.user);
-                    const val = window.expenseFormState.split_type === 'EXACT' ? `₹${sd.amount.toFixed(2)}` : `${sd.percentage}%`;
-                    return `<div class="flex justify-between border-b-2 border-black border-dashed py-1 font-black text-xs uppercase last:border-0"><span>${u.username}</span><span>${val}</span></div>`;
-                }).join('');
-            }
-
-            document.getElementById('review-summary').innerHTML = `
-                <div class="flex justify-between items-center mb-3"><span class="font-black text-xl uppercase">${window.expenseFormState.title}</span><span class="font-black text-xl">₹${window.expenseFormState.amount.toFixed(2)}</span></div>
-                <p class="font-black uppercase text-[10px] bg-yellow-300 border-2 border-black inline-block px-2 py-1 mb-4">PAID BY: ${payer.username}</p>
-                <div class="bg-white border-2 border-black p-3"><p class="font-black uppercase text-[10px] text-gray-500 mb-2">SPLIT BREAKDOWN</p>${splitsHtml}</div>`;
-        }
-
-        // --- EVENT LISTENERS ---
-        function setupEventListeners() {
-            // Tab Switching
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    document.querySelectorAll('.tab-btn').forEach(b => {
-                        b.classList.remove('bg-black', 'text-white', 'active-tab'); b.classList.add('bg-white', 'text-black');
-                    });
-                    e.target.classList.remove('bg-white', 'text-black'); e.target.classList.add('bg-black', 'text-white', 'active-tab');
-                    document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
-                    document.getElementById(`tab-${e.target.dataset.tab}`).classList.remove('hidden');
-                });
-            });
-
-            document.querySelectorAll('[data-tab-target]').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    document.querySelector(`.tab-btn[data-tab="${e.target.dataset.tabTarget}"]`).click();
-                });
-            });
-
-            const loBtn = document.getElementById('logout-btn');
-            if(loBtn) loBtn.addEventListener('click', () => auth.logout());
-
-            // Add Expense Modal Triggers
-            document.getElementById('add-expense-btn').addEventListener('click', openExpenseModal);
-            document.getElementById('close-expense-modal').addEventListener('click', closeExpenseModal);
-
-            // Step 1 -> 2
-            document.getElementById('step-1-next').addEventListener('click', () => {
-                window.expenseFormState.title = document.getElementById('exp-title').value.trim();
-                window.expenseFormState.amount = parseFloat(document.getElementById('exp-amount').value);
-                
-                window.expenseFormState.paid_by = parseInt(document.getElementById('exp-paid-by').value);
-
-                if (!window.expenseFormState.title || !window.expenseFormState.amount || window.expenseFormState.amount <= 0) {
-                    showAlert('Please enter a valid title and amount.', 'error'); return;
-                }
-                goToExpenseStep(2);
-            });
-
-            // Wizard Selectors
-            document.querySelectorAll('.cat-btn').forEach(btn => btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.cat-btn').forEach(b => { b.classList.remove('bg-yellow-300', 'shadow-comic'); b.classList.add('bg-white'); });
-                e.currentTarget.classList.add('bg-yellow-300', 'shadow-comic'); e.currentTarget.classList.remove('bg-white');
-                window.expenseFormState.category = e.currentTarget.dataset.cat;
-            }));
-
-            document.querySelectorAll('.split-type-btn').forEach(btn => btn.addEventListener('click', (e) => {
-                document.querySelectorAll('.split-type-btn').forEach(b => { b.classList.remove('bg-black', 'text-white', 'shadow-comic'); b.classList.add('bg-white', 'text-black'); });
-                e.currentTarget.classList.add('bg-black', 'text-white', 'shadow-comic'); e.currentTarget.classList.remove('bg-white', 'text-black');
-                window.expenseFormState.split_type = e.currentTarget.dataset.type;
-                renderSplitInputs();
-            }));
-
-            // Step 2 -> 3
-            document.getElementById('step-2-back').addEventListener('click', () => goToExpenseStep(1));
-            
-            document.getElementById('step-2-next').addEventListener('click', () => {
-                window.expenseFormState.split_data = [];
-                
-                if (window.expenseFormState.split_type === 'ITEM') {
-                    let sum = 0;
-                    for (let item of window.expenseFormState.split_items) {
-                        if (!item.name || !item.amount || parseFloat(item.amount) <= 0) {
-                            showAlert('All items must have a name and price.', 'error'); return;
-                        }
-                        if (!item.user_ids || item.user_ids.length === 0) {
-                            showAlert(`Select at least one person for "${item.name}".`, 'error'); return;
-                        }
-                        sum += parseFloat(item.amount);
-                    }
-                    if (Math.abs(sum - window.expenseFormState.amount) > 0.01) {
-                        showAlert(`Item total (₹${sum.toFixed(2)}) must match bill (₹${window.expenseFormState.amount})`, 'error'); return;
-                    }
-                    window.expenseFormState.split_data = window.expenseFormState.split_items.map(i => ({ 
-                        name: i.name, 
-                        amount: parseFloat(i.amount), 
-                        user_ids: i.user_ids 
-                    }));
-                
-                } else if (window.expenseFormState.split_type !== 'EQUAL') {
-                    let sum = 0;
-                    document.querySelectorAll('.split-val-input').forEach(input => {
-                        const val = parseFloat(input.value || 0); sum += val;
-                        if (val > 0) {
-                            if (window.expenseFormState.split_type === 'EXACT') window.expenseFormState.split_data.push({ user: parseInt(input.dataset.uid), amount: val });
-                            if (window.expenseFormState.split_type === 'PERCENT') window.expenseFormState.split_data.push({ user: parseInt(input.dataset.uid), percentage: val });
-                        }
-                    });
-                    const target = window.expenseFormState.split_type === 'EXACT' ? window.expenseFormState.amount : 100;
-                    if (Math.abs(sum - target) > 0.01) {
-                        showAlert(`Splits must equal ${window.expenseFormState.split_type === 'EXACT' ? '₹' + target : '100%'}`, 'error'); return;
-                    }
-                }
-                
-                goToExpenseStep(3);
-            });
-            
-            // Step 3 -> Submit
-            document.getElementById('step-3-back').addEventListener('click', () => goToExpenseStep(2));
-            document.getElementById('submit-expense-btn').addEventListener('click', async (e) => {
-                e.currentTarget.disabled = true; e.currentTarget.innerText = 'SAVING...';
-                try {
-                    await api.request('/api/expenses/', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            title: window.expenseFormState.title, amount: window.expenseFormState.amount, date: window.expenseFormState.date, category: window.expenseFormState.category,
-                            group: parseInt(groupId), paid_by: window.expenseFormState.paid_by, split_type: window.expenseFormState.split_type, split_data: window.expenseFormState.split_data
-                        })
-                    });
-                    closeExpenseModal();
-                    showAlert('Expense added successfully!', 'success');
-                    
-                    setTimeout(() => {
-                      loadPageData();
-                    }, 2500); 
-                } catch (err) { showAlert('Failed to add expense.', 'error'); } 
-                finally { e.currentTarget.disabled = false; e.currentTarget.innerText = 'Add Expense ✓'; }
-            });
-
-            // Top Invite Code Click-to-Copy
-            document.getElementById('top-invite-code').addEventListener('click', (e) => {
-                if(AppState.group && AppState.group.invite_code) {
-                    navigator.clipboard.writeText(AppState.group.invite_code);
-                    const orig = e.target.innerText;
-                    e.target.innerText = 'COPIED!';
-                    setTimeout(() => e.target.innerText = orig, 2000);
-                }
-            });
-
-            // SETTINGS TAB HOOKS 
-            const saveGroupBtn = document.getElementById('save-group-btn');
-            if (saveGroupBtn) {
-                saveGroupBtn.addEventListener('click', async () => {
-                    const name = document.getElementById('edit-group-name').value;
-                    const desc = document.getElementById('edit-group-desc').value;
-                    try {
-                        await api.request(`/api/groups/${groupId}/`, { method: 'PATCH', body: JSON.stringify({ name, description: desc }) });
-                        showAlert('Squad updated!', 'success'); loadPageData();
-                    } catch (err) { showAlert('Failed to save settings.', 'error'); }
-                });
-            }
-
-            const copyCodeBtn = document.getElementById('copy-code-btn');
-            if (copyCodeBtn) {
-                copyCodeBtn.addEventListener('click', (e) => {
-                    navigator.clipboard.writeText(AppState.group.invite_code);
-                    e.target.innerText = 'COPIED!'; setTimeout(() => e.target.innerText = 'COPY CODE', 2000);
-                });
-            }
-
-            const deleteGroupBtn = document.getElementById('delete-group-btn');
-            if (deleteGroupBtn) {
-                deleteGroupBtn.addEventListener('click', async () => {
-                    const originalHtml = deleteGroupBtn.innerHTML;
-                    deleteGroupBtn.innerHTML = 'VERIFYING...';
-                    deleteGroupBtn.disabled = true;
-
-                    try {
-                        const balances = await api.request(`/api/expenses/group_balances/${groupId}/`);
-                        let warningHtml = '';
-                        const unsettled = balances.filter(b => Math.abs(b.net_balance) > 0.01);
-                        
-                        if (unsettled.length > 0) {
-                            const balanceList = unsettled.map(b => 
-                                `<p class="font-bold text-xs uppercase mb-1">- ${b.username}: ${b.net_balance > 0 ? 'Owed' : 'Owes'} ₹${Math.abs(b.net_balance).toFixed(2)}</p>`
-                            ).join('');
-
-                            warningHtml = `
-                                <div class="bg-red-50 border-4 border-black p-4 mb-6 shadow-comic-sm">
-                                    <p class="font-black text-xs uppercase text-red-600 tracking-widest mb-2">Warning: Active Balances</p>
-                                    ${balanceList}
-                                    <p class="font-black text-[10px] uppercase bg-yellow-300 p-1 inline-block mt-3 border-2 border-black">THESE DEBTS WILL BE WRITTEN OFF FOREVER</p>
-                                </div>
-                            `;
-                        }
-
-                        ui.showModal('Delete Squad', `
-                            ${warningHtml}
-                            <p class="font-bold text-sm uppercase mb-3">This cannot be undone. Type the squad name to confirm:</p>
-                            <input id="confirm-delete-input" type="text" placeholder="${AppState.group.name.toUpperCase()}" class="w-full border-4 border-black p-3 font-black uppercase outline-none focus:bg-red-50">
-                        `, [
-                            { label: 'Delete Forever', class: 'bg-pink-400', onClick: async () => {
-                                const input = document.getElementById('confirm-delete-input').value.toUpperCase();
-                                if (input !== AppState.group.name.toUpperCase()) { 
-                                    showAlert('Name does not match.', 'error'); 
-                                    return; 
-                                }
-                                await api.request(`/api/groups/${groupId}/`, { method: 'DELETE' });
-                                window.location.href = 'groups.html';
-                            }},
-                            { label: 'Cancel', class: 'bg-white', onClick: () => ui.hideModal() }
-                        ]);
-                    } catch (err) {
-                        showAlert('Failed to verify group balances.', 'error');
-                    } finally {
-                        deleteGroupBtn.innerHTML = originalHtml;
-                        deleteGroupBtn.disabled = false;
-                    }
-                });
-            }
-
-            // Member Search Logic
-            let searchTimeout;
-            const memberSearch = document.getElementById('member-search');
-            if (memberSearch) {
-                memberSearch.addEventListener('input', (e) => {
-                    clearTimeout(searchTimeout);
-                    const q = e.target.value.trim();
-                    const resContainer = document.getElementById('search-results');
-                    if (q.length < 2) { resContainer.classList.add('hidden'); return; }
-                    searchTimeout = setTimeout(async () => {
-                        try {
-                            const results = await api.request(`/api/users/profile/?search=${q}/`);
-                            if (results && results.length > 0) {
-                                resContainer.innerHTML = results.map(u => `
-                                    <div class="flex items-center justify-between p-3 hover:bg-yellow-50 cursor-pointer border-b-2 border-black last:border-b-0">
-                                        <span class="font-black uppercase text-xs">${u.username}</span>
-                                        <button class="bg-black text-white px-2 py-1 font-black uppercase text-[8px]" onclick="addMember(${u.id})">+ Add</button>
-                                    </div>`).join('');
-                                resContainer.classList.remove('hidden');
-                            } else {
-                                resContainer.innerHTML = '<div class="p-3 font-bold text-xs uppercase text-gray-500">No users found.</div>';
-                                resContainer.classList.remove('hidden');
-                            }
-                        } catch (err) { console.error(err); }
-                    }, 400);
-                });
-            }
-            document.getElementById('settle-up-btn').addEventListener('click', () => openSettleModal());
-        }
-
-        // --- GLOBAL ACTIONS FOR INLINE ONCLICK ---
-        window.toggleExpenseDetail = async (id) => {
-            const detailEl = document.getElementById(`expense-detail-${id}`);
-            const exp = AppState.expenses.find(e => e.id === id);
-            if (!detailEl || !exp) return;
-            
-            if (detailEl.classList.contains('hidden')) {
-                let splitsHtml = exp.splits.map(s => `<div class="flex items-center justify-between p-2 bg-blue-50 border-2 border-black mb-2"><span class="font-black text-xs uppercase">${AppState.members.find(m=>String(m.id)===String(s.user))?.username || 'User'}</span><span class="font-black text-xs">OWES ${utils.formatCurrency(s.amount_owed)}</span></div>`).join('');
-                
-                let itemsHtml = '';
-                if (exp.split_type === 'ITEM' && exp.items && exp.items.length > 0) {
-                    itemsHtml = `<div class="mb-3 bg-white border-2 border-black p-2"><p class="font-black text-[9px] uppercase text-gray-500 mb-1">Receipt Items:</p>` + 
-                        exp.items.map(i => `<div class="flex justify-between font-black text-[10px] uppercase border-b border-dashed border-gray-300 py-1 last:border-0"><span>${i.name}</span><span>₹${i.amount}</span></div>`).join('') + `</div>`;
-                }
-                detailEl.innerHTML = `
-                    <div class="flex items-center gap-2 mb-3">
-                        <span class="bg-purple-400 border-2 border-black px-2 py-0.5 text-[8px] font-black uppercase text-white">${exp.split_type}</span>
-                        <span class="bg-yellow-300 border-2 border-black px-2 py-0.5 text-[8px] font-black uppercase text-black">${exp.category || 'OTHER'}</span>
-                    </div>
-                    ${itemsHtml}
-                    <div class="space-y-2 mb-4">${splitsHtml}</div>
-                `;detailEl.classList.remove('hidden');
-            } else { detailEl.classList.add('hidden'); }
-        };
-
-        window.deleteExpense = async (id, event) => {
-            event.stopPropagation();
-            
-            const btn = event.currentTarget;
-            const originalHtml = btn.innerHTML;
-            btn.innerHTML = '<span class="text-[8px] font-black uppercase">WAIT</span>';
-            btn.disabled = true;
-
-            try {
-                const checkResponse = await api.request(`/api/expenses/${id}/can-delete/`);
-                
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-
-                if (checkResponse && checkResponse.can_delete === false) {
-                    let detailsHtml = checkResponse.details.map(d => 
-                        `<li class="font-bold text-xs uppercase mb-1">- ${d.debtor} paid ${d.creditor}</li>`
-                    ).join('');
-
-                    ui.showModal('Cannot Delete Expense', `
-                        <p class="font-bold text-sm uppercase text-red-600 mb-3">Settled debts exist!</p>
-                        <p class="font-bold text-xs uppercase text-gray-600 mb-2">The following users have already exchanged money based on this group's balances:</p>
-                        <ul class="mb-4">${detailsHtml}</ul>
-                        <p class="font-black text-[10px] uppercase tracking-widest bg-yellow-50 p-2 border-2 border-black">Ask them to delete their settlements first, then retry.</p>
-                    `, [
-                        { label: 'Understood', class: 'bg-white', onClick: () => ui.hideModal() }
-                    ]);
-                    return; 
-                }
-
-                ui.showModal('Delete Expense', '<p class="font-bold text-sm uppercase">Are you sure you want to delete this?</p>', [
-                    { label: 'Delete', class: 'bg-pink-400', onClick: async () => {
-                        try { 
-                            await api.request(`/api/expenses/${id}/`, { method: 'DELETE' }); 
-                            ui.hideModal(); 
-                            showAlert('Expense deleted.', 'success'); 
-                            setTimeout(() => { loadPageData(); }, 1500); 
-                        } catch(err) { 
-                            if (err.message === 'SETTLED_DEBTS_EXIST') {
-                                showAlert('Blocked: Settled debts exist.', 'error');
-                            } else {
-                                showAlert('Failed to delete.', 'error'); 
-                            }
-                            ui.hideModal();
-                        }
-                    }},
-                    { label: 'Cancel', class: 'bg-white', onClick: () => ui.hideModal() }
-                ]);
-
-            } catch (err) {
-                btn.innerHTML = originalHtml;
-                btn.disabled = false;
-                showAlert('Failed to check status.', 'error');
-            }
-        };
-
-        window.confirmSettlement = async (id) => {
-            utils.hapticFeedback('medium');
-            try {
-                await api.request(`/api/settlements/${id}/confirm_settlement/`, { method: 'POST' });
-                confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 },ticks: 500,gravity:0.9 });
-                showAlert('Settlement confirmed!', 'success'); setTimeout(() => { loadPageData(); }, 1500);
-            } catch(err) { showAlert('Failed to confirm.', 'error'); }
-        };
-
-        window.remindUser = (username, amount) => {
-            const msg = `Hey ${username}, you owe me ${utils.formatCurrency(amount)} on Resolv. Settle up when you can!`;
-            navigator.clipboard.writeText(msg); showAlert('Reminder copied to clipboard!', 'success');
-        };
-
-        window.openSettleModal = (prefillMemberId = null, prefillAmount = null) => {
-            let optionsHtml = AppState.members.filter(m => String(m.id) !== String(AppState.currentUser.id)).map(m => 
-                `<option value="${m.id}" ${String(m.id) === String(prefillMemberId) ? 'selected' : ''}>${m.username.toUpperCase()}</option>`
-            ).join('');
-            
-            ui.showModal('Settle Up', `
-                <div class="space-y-4">
-                    <div>
-                        <label class="font-black uppercase text-[10px] tracking-widest block mb-1">To</label>
-                        <select id="settle-receiver" class="w-full border-4 border-black p-3 font-black uppercase outline-none focus:bg-yellow-50">
-                            <option value="" disabled ${!prefillMemberId ? 'selected' : ''}>SELECT FRIEND...</option>
-                            ${optionsHtml}
-                        </select>
-                        
-                        <div id="settle-hint-box" class="hidden mt-2 border-2 border-black p-2 transition-colors">
-                            <p id="settle-hint-text" class="font-black text-[10px] uppercase tracking-widest"></p>
-                        </div>
-                    </div>
-                    
-                    <div class="border-4 border-black flex items-center shadow-comic">
-                        <span class="px-3 font-black text-lg border-r-4 border-black">₹</span>
-                        <input id="settle-amount" type="number" step="0.01" value="${prefillAmount || ''}" placeholder="0.00" class="flex-grow p-3 font-black text-lg outline-none focus:bg-yellow-50">
-                    </div>
-                </div>`, [
-                { label: 'Mark as Paid', class: 'bg-lime-300', onClick: async () => {
-                    const rId = document.getElementById('settle-receiver').value; 
-                    const amt = document.getElementById('settle-amount').value;
-                    
-                    if (!rId) { showAlert('Please select someone to pay.', 'error'); return; }
-                    if (!amt || parseFloat(amt) <= 0) { showAlert('Please enter a valid amount.', 'error'); return; }
-                    
-                    try {
-                        await api.request('/api/settlements/', { method: 'POST', body: JSON.stringify({ receiver: parseInt(rId), amount: parseFloat(amt), group: parseInt(groupId) }) });
-                        ui.hideModal(); 
-                        showAlert('Settlement marked! Waiting for confirmation.', 'success'); 
-                        setTimeout(() => { loadPageData(); }, 1500);
-                    } catch(err) { showAlert(err.message || 'Failed to settle.', 'error'); }
-                }},
-                { label: 'Cancel', class: 'bg-white', onClick: () => ui.hideModal() }
-            ]);
-
-            // --- Dynamic Balances Logic ---
-            const receiverSelect = document.getElementById('settle-receiver');
-            const amountInput = document.getElementById('settle-amount');
-            const hintBox = document.getElementById('settle-hint-box');
-            const hintText = document.getElementById('settle-hint-text');
-
-            const updateHint = () => {
-                const rId = receiverSelect.value;
-                if (!rId) {
-                    hintBox.classList.add('hidden');
-                    return;
-                }
-                
-                const receiverName = AppState.members.find(m => String(m.id) === String(rId))?.username;
-                const myName = AppState.currentUser.username;
-                
-                const suggested = AppState.isSimplified 
-                    ? AppState.suggestedPayments.find(p => p.from === myName && p.to === receiverName) 
-                    : null;
-                
-                const bal = AppState.computedBalances.find(b => String(b.id) === String(rId));
-                if (!bal && !suggested) return;
-
-                hintBox.classList.remove('hidden');
-
-                if (suggested) {
-                    hintText.innerHTML = `OPTIMIZED PAYMENT: ₹${suggested.amount.toFixed(2)}<br><span class="text-[8px] text-purple-600 mt-1 block tracking-normal">This settles multiple group debts instantly.</span>`;
-                    hintText.className = 'font-black text-[10px] uppercase tracking-widest text-purple-800';
-                    hintBox.className = 'mt-2 border-2 border-black p-2 bg-purple-100';
-                    
-                    if (!prefillAmount || receiverSelect.value !== String(prefillMemberId)) {
-                        amountInput.value = suggested.amount.toFixed(2);
-                    }
-                } else if (bal && bal.netAmount < 0) {
-                    const owed = Math.abs(bal.netAmount).toFixed(2);
-                    hintText.textContent = `RAW BALANCE: YOU OWE ₹${owed}`;
-                    hintText.className = 'font-black text-[10px] uppercase tracking-widest text-red-600';
-                    hintBox.className = 'mt-2 border-2 border-black p-2 bg-red-50';
-                    
-                    if (!prefillAmount || receiverSelect.value !== String(prefillMemberId)) {
-                        amountInput.value = owed;
-                    }
-                } else if (bal && bal.netAmount > 0) {
-                    hintText.textContent = `THEY OWE YOU: ₹${bal.netAmount.toFixed(2)}`;
-                    hintText.className = 'font-black text-[10px] uppercase tracking-widest text-blue-600';
-                    hintBox.className = 'mt-2 border-2 border-black p-2 bg-blue-50';
-                    amountInput.value = '';
-                } else {
-                    hintText.textContent = `ALL SETTLED UP ✓`;
-                    hintText.className = 'font-black text-[10px] uppercase tracking-widest text-green-600';
-                    hintBox.className = 'mt-2 border-2 border-black p-2 bg-lime-50';
-                    amountInput.value = '';
-                }
-            };
-
-            receiverSelect.addEventListener('change', updateHint);
-            
-            if (prefillMemberId) {
-                updateHint();
-            } else if (receiverSelect.value) {
-                updateHint();
-            }
-        };
-
-        window.removeMember = async (userId) => {
-            ui.showModal('Remove Member', '<p class="font-bold text-sm uppercase">Are you sure you want to kick this member out?</p>', [
-                { label: 'Remove', class: 'bg-pink-400', onClick: async () => {
-                    try {
-                        await api.request(`/api/groups/${groupId}/remove-member/`, { method: 'POST', body: JSON.stringify({ user_id: userId }) });
-                        ui.hideModal(); showAlert('Member removed.', 'success'); loadPageData();
-                    } catch (err) { showAlert('Failed to remove member.', 'error'); }
-                }},
-                { label: 'Cancel', class: 'bg-white', onClick: () => ui.hideModal() }
-            ]);
-        };
-
-        window.addMember = async (userId) => {
-            try {
-                await api.request(`/api/groups/${groupId}/add-member/`, { method: 'POST', body: JSON.stringify({ user_id: userId }) });
-                document.getElementById('search-results').classList.add('hidden');
-                document.getElementById('member-search').value = '';
-                showAlert('Member added!', 'success'); loadPageData();
-            } catch (err) { showAlert('Failed to add member.', 'error'); }
-        };
-
-        // --- UTILS ---
-        function showAlert(message, type) {
-            const banner = document.getElementById('alert-banner');
-            banner.innerText = message; banner.classList.remove('hidden', 'bg-lime-300', 'bg-pink-400');
-            banner.classList.add(type === 'success' ? 'bg-lime-300' : 'bg-pink-400'); banner.classList.remove('hidden');
-            setTimeout(() => banner.classList.add('hidden'), 4000);
-        }
-    </script>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="exp-cancel">Cancel</button>
+      <button class="btn btn-primary" id="exp-submit">Save Expense</button>
+    </div>
+  </div>
+</div>
+
+<!-- Create Settlement Modal -->
+<div class="modal-overlay" id="modal-group-settlement" hidden>
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <span class="modal-title">Record Settlement</span>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="gs-receiver">Pay To</label>
+        <div class="select-wrapper">
+          <select class="form-select" id="gs-receiver"></select>
+        </div>
+        <span class="form-error" id="gs-receiver-error"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="gs-amount">Amount</label>
+        <input class="form-input" type="number" id="gs-amount" min="0.01" step="0.01" placeholder="0.00">
+        <span class="form-error" id="gs-amount-error"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="gs-currency">Currency</label>
+        <div class="select-wrapper">
+          <select class="form-select" id="gs-currency">
+            <option value="INR">INR</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+          </select>
+        </div>
+      </div>
+      <span class="form-error" id="gs-global-error"></span>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="gs-cancel">Cancel</button>
+      <button class="btn btn-primary" id="gs-submit">Record Settlement</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Member Modal -->
+<div class="modal-overlay" id="modal-add-member" hidden>
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <span class="modal-title">Add Member</span>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="am-username-email">Username or Email</label>
+        <input class="form-input" type="text" id="am-username-email" placeholder="Enter username or email">
+        <span class="form-error" id="am-error"></span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="am-cancel">Cancel</button>
+      <button class="btn btn-primary" id="am-submit">Add Member</button>
+    </div>
+  </div>
+</div>
+
+<!-- Invite Code Modal -->
+<div class="modal-overlay" id="modal-invite" hidden>
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <span class="modal-title">Invite Code</span>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center">
+      <p class="text-sm text-muted fw-600 uppercase">Share this code</p>
+      <div class="mono text-3xl fw-700" id="invite-modal-code" style="margin:var(--space-4) 0;letter-spacing:0.2em">——</div>
+      <button class="btn btn-primary" id="btn-copy-invite-modal">Copy Code</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Group Modal -->
+<div class="modal-overlay" id="modal-edit-group" hidden>
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title">Edit Group</span>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="eg-name">Group Name</label>
+        <input class="form-input" type="text" id="eg-name" placeholder="Goa Trip" required>
+        <span class="form-error" id="eg-name-error"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="eg-currency">Currency</label>
+        <div class="select-wrapper">
+          <select class="form-select" id="eg-currency">
+            <option value="INR">INR — Indian Rupee</option>
+            <option value="USD">USD — US Dollar</option>
+            <option value="EUR">EUR — Euro</option>
+            <option value="GBP">GBP — British Pound</option>
+            <option value="SGD">SGD — Singapore Dollar</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Emoji (optional)</label>
+        <div id="eg-emoji-picker" style="display:flex;flex-wrap:wrap;gap:8px">
+          <span class="emoji-opt" data-emoji="🏖️">🏖️</span>
+          <span class="emoji-opt" data-emoji="🏠">🏠</span>
+          <span class="emoji-opt" data-emoji="✈️">✈️</span>
+          <span class="emoji-opt" data-emoji="🍕">🍕</span>
+          <span class="emoji-opt" data-emoji="🎉">🎉</span>
+          <span class="emoji-opt" data-emoji="⚽">⚽</span>
+          <span class="emoji-opt" data-emoji="🎵">🎵</span>
+          <span class="emoji-opt" data-emoji="📚">📚</span>
+          <span class="emoji-opt" data-emoji="🚗">🚗</span>
+          <span class="emoji-opt" data-emoji="🏕️">🏕️</span>
+          <span class="emoji-opt" data-emoji="💼">💼</span>
+          <span class="emoji-opt" data-emoji="🌍">🌍</span>
+        </div>
+        <input type="hidden" id="eg-emoji" value="">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="eg-description">Description (optional)</label>
+        <textarea class="form-textarea" id="eg-description" placeholder="What's this group for?"></textarea>
+      </div>
+      <span class="form-error" id="eg-global-error"></span>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="eg-cancel">Cancel</button>
+      <button class="btn btn-primary" id="eg-submit">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Group Confirm Modal -->
+<div class="modal-overlay" id="modal-delete-group" hidden>
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <span class="modal-title">Delete Group</span>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p>Are you sure you want to delete this group? This action cannot be undone.</p>
+      <span class="form-error" id="del-group-error"></span>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="del-group-cancel">Cancel</button>
+      <button class="btn btn-danger" id="del-group-confirm">Delete Group</button>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- User Profile Modal -->
+<div class="modal-overlay" id="modal-user-profile" hidden>
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <span class="modal-title">User Profile</span>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" style="text-align: center;">
+      <div id="up-avatar" class="avatar avatar-lg" style="margin: 0 auto 16px;"></div>
+      <h3 id="up-username" style="margin-bottom: 4px; font-weight: 700;"></h3>
+      <div id="up-email" class="text-muted text-sm" style="margin-bottom: 16px;"></div>
+      
+      <div style="background: var(--bg-card); padding: 16px; border-radius: var(--radius-md); border: 1px solid var(--border-color); text-align: left; display: grid; gap: 12px;">
+        <div style="display: flex; justify-content: space-between;">
+          <span class="text-muted text-sm fw-600">Reliability Score</span>
+          <span id="up-score" class="fw-700"></span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span class="text-muted text-sm fw-600">Settlements Done</span>
+          <span id="up-settlements" class="fw-700"></span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span class="text-muted text-sm fw-600">Joined Resolv</span>
+          <span id="up-joined" class="fw-700 text-sm"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script type="module" src="js/pages/group-detail.js?v=2"></script>
 </body>
 </html>

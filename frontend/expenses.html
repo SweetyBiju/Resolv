@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expenses — Resolv</title>
+  <meta name="description" content="View and manage all your expenses across every group.">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/layout.css">
+</head>
+<body>
+<div id="app">
+  <div id="sidebar"></div>
+  <div id="main">
+    <header id="topbar">
+      <span class="topbar-title">My Expenses</span>
+      <div class="topbar-right">
+        <a href="profile.html" class="topbar-user">
+          <div class="avatar" id="topbar-avatar">?</div>
+          <span class="topbar-username" id="topbar-username"></span>
+        </a>
+      </div>
+    </header>
+    <main id="content">
+
+      <div class="page-header">
+        <h1 class="page-title">My Expenses</h1>
+        <div class="page-actions">
+          <button class="btn btn-primary" id="btn-add-expense">+ Add Expense</button>
+        </div>
+      </div>
+
+      <!-- Filter Bar -->
+      <div class="filter-bar">
+        <div class="select-wrapper">
+          <select class="form-select" id="filter-group" style="min-width:160px">
+            <option value="">All Groups</option>
+          </select>
+        </div>
+        <div class="select-wrapper">
+          <select class="form-select" id="filter-category">
+            <option value="">All Categories</option>
+            <option value="FOOD">Food</option>
+            <option value="TRAVEL">Travel</option>
+            <option value="HOUSING">Housing</option>
+            <option value="ENTERTAINMENT">Entertainment</option>
+            <option value="UTILITIES">Utilities</option>
+            <option value="OTHER">Other</option>
+          </select>
+        </div>
+        <input class="form-input" type="date" id="filter-from" title="From date" style="width:auto">
+        <input class="form-input" type="date" id="filter-to" title="To date" style="width:auto">
+        <button class="btn btn-ghost btn-sm" id="btn-clear-filters">Clear Filters</button>
+      </div>
+
+      <!-- Expense List -->
+      <div id="expenses-list"></div>
+      <div id="expenses-empty" class="empty-state hidden" style="margin-top:var(--space-6)">
+        No expenses yet. Add one from a group.
+      </div>
+
+      <div style="text-align:center;margin-top:var(--space-6)" id="load-more-container" class="hidden">
+        <button class="btn btn-outline" id="btn-load-more">Load More</button>
+      </div>
+
+    </main>
+  </div>
+  <div id="bottom-nav"></div>
+</div>
+
+<!-- Add Expense Modal -->
+<div class="modal-overlay" id="modal-expense" hidden>
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <span class="modal-title" id="exp-modal-title">Add Expense</span>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="exp-group">Group</label>
+        <div class="select-wrapper">
+          <select class="form-select" id="exp-group"></select>
+        </div>
+        <span class="form-error" id="exp-group-error"></span>
+      </div>
+      <div class="grid-2" style="gap:var(--space-4)">
+        <div class="form-group">
+          <label class="form-label" for="exp-title">Title</label>
+          <input class="form-input" type="text" id="exp-title" placeholder="Dinner">
+          <span class="form-error" id="exp-title-error"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="exp-amount">Amount</label>
+          <input class="form-input" type="number" id="exp-amount" min="0.01" step="0.01" placeholder="0.00">
+          <span class="form-error" id="exp-amount-error"></span>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="exp-category">Category</label>
+          <div class="select-wrapper">
+            <select class="form-select" id="exp-category">
+              <option value="FOOD">Food</option>
+              <option value="TRAVEL">Travel</option>
+              <option value="HOUSING">Housing</option>
+              <option value="ENTERTAINMENT">Entertainment</option>
+              <option value="UTILITIES">Utilities</option>
+              <option value="OTHER">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="exp-date">Date</label>
+          <input class="form-input" type="date" id="exp-date">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="exp-currency">Currency</label>
+          <div class="select-wrapper">
+            <select class="form-select" id="exp-currency">
+              <option value="INR">INR</option>
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="exp-paid-by">Paid By</label>
+          <div class="select-wrapper">
+            <select class="form-select" id="exp-paid-by"></select>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Split Type</label>
+        <div class="split-selector" id="exp-split-selector">
+          <button type="button" class="split-pill active" data-split="EQUAL">Equal</button>
+          <button type="button" class="split-pill" data-split="EXACT">Exact</button>
+          <button type="button" class="split-pill" data-split="PERCENT">Percent</button>
+          <button type="button" class="split-pill" data-split="ITEM">By Item</button>
+        </div>
+      </div>
+      <div id="exp-split-section"></div>
+      <div class="form-group">
+        <label class="form-label" for="exp-notes">Notes (optional)</label>
+        <textarea class="form-textarea" id="exp-notes" placeholder="Any extra details…"></textarea>
+      </div>
+      <span class="form-error" id="exp-global-error"></span>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="exp-cancel">Cancel</button>
+      <button class="btn btn-primary" id="exp-submit">Save Expense</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script type="module" src="js/pages/expenses.js"></script>
+</body>
+</html>

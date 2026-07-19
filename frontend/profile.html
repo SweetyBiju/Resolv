@@ -1,365 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resolv | Identity & Trust</title>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
-    
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    boxShadow: {
-                        'comic': '6px 6px 0px 0px rgba(0,0,0,1)',
-                        'comic-sm': '3px 3px 0px 0px rgba(0,0,0,1)'
-                    }
-                }
-            }
-        }
-    </script>
-    <style>
-        ::-webkit-scrollbar { width: 10px; }
-        ::-webkit-scrollbar-track { background: #eff6ff; border-left: 3px solid #000; }
-        ::-webkit-scrollbar-thumb { background: #000; border: 2px solid #eff6ff; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Profile — Resolv</title>
+  <meta name="description" content="View and edit your profile, change your password, manage your account.">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/layout.css">
 </head>
-<body class="bg-blue-50 text-black font-sans overflow-hidden">
+<body>
+<div id="app">
+  <div id="sidebar"></div>
+  <div id="main">
+    <header id="topbar">
+      <span class="topbar-title">Profile</span>
+      <div class="topbar-right">
+        <a href="profile.html" class="topbar-user">
+          <div class="avatar" id="topbar-avatar">?</div>
+          <span class="topbar-username" id="topbar-username"></span>
+        </a>
+      </div>
+    </header>
+    <main id="content">
 
-    <div class="flex flex-col md:flex-row min-h-screen h-screen">
-        
-        <nav class="w-full md:w-64 bg-white border-b-4 md:border-b-0 md:border-r-4 border-black p-6 flex flex-col z-20 sticky top-0 md:h-screen flex-shrink-0 overflow-y-auto">
-            <h1 class="text-4xl font-black uppercase italic mb-10 tracking-tighter">Resolv<span class="text-purple-400">.</span></h1>
-            <div class="space-y-4 flex-grow">
-                <a href="dashboard.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
-                    <i data-lucide="layout-dashboard" stroke-width="4"></i> Dashboard
-                </a>
-                <a href="groups.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
-                    <i data-lucide="users" stroke-width="4"></i> Groups
-                </a>
-                <a href="transactions.html" class="flex items-center gap-3 p-3 border-4 border-black hover:bg-slate-100 font-black uppercase text-sm transition-all">
-                    <i data-lucide="arrow-left-right" stroke-width="4"></i> Activity
-                </a>
-                <a href="profile.html" class="flex items-center gap-3 p-3 bg-blue-400 border-4 border-black shadow-comic font-black uppercase text-sm transition-all">
-                    <i data-lucide="user" stroke-width="4"></i> Profile
-                </a>
+      <div class="page-header">
+        <h1 class="page-title">Profile</h1>
+      </div>
+
+      <div class="profile-layout">
+
+        <!-- LEFT: Profile Card -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+
+          <div class="card" style="text-align:center">
+            <div class="avatar avatar-xl" id="profile-avatar" style="margin:0 auto var(--space-4)">?</div>
+            <div style="font-size:var(--text-2xl);font-weight:700;text-transform:uppercase" id="profile-username">—</div>
+            <div style="color:var(--text-muted);font-size:var(--text-sm);margin-top:var(--space-1)" id="profile-email">—</div>
+            <div style="margin-top:var(--space-4)">
+              <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted)">Member Since</div>
+              <div style="font-weight:600" id="profile-since">—</div>
             </div>
-            <button id="logout-btn" class="mt-8 flex items-center gap-3 p-3 border-4 border-black hover:bg-pink-400 font-black uppercase text-sm transition-all">
-                <i data-lucide="log-out" stroke-width="4"></i> Log Out
-            </button>
-        </nav>
+          </div>
 
-        <main class="flex-grow p-6 md:p-12 overflow-y-auto relative w-full">
-            
-            <div class="mb-10">
-                <h2 class="text-5xl font-black uppercase tracking-tighter italic">Identity & Trust</h2>
-                <p class="font-bold text-gray-500 uppercase tracking-widest text-xs mt-2">Manage your Resolv presence</p>
-            </div>
+          <!-- Reliability Score Card -->
+          <div style="background:var(--purple);border:var(--border-thick);border-radius:var(--radius);box-shadow:var(--shadow-card);padding:var(--space-6);color:#fff;text-align:center">
+            <div style="font-size:var(--text-xs);font-weight:700;text-transform:uppercase;letter-spacing:0.1em;opacity:0.8;margin-bottom:var(--space-2)">Reliability Score</div>
+            <div style="font-size:var(--text-3xl);font-weight:700;line-height:1" id="profile-score">—</div>
+            <div style="font-size:var(--text-xs);opacity:0.7;margin-top:var(--space-2)" id="profile-currency-badge">—</div>
+          </div>
 
-            <div id="alert-banner" class="hidden mb-6 border-4 border-black p-4 font-black uppercase text-sm shadow-comic"></div>
+        </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                
-                <div class="lg:col-span-5 space-y-8">
-                    
-                    <div class="bg-white border-4 border-black shadow-comic p-6">
-                        <h3 class="font-black uppercase text-xl mb-6">Preferences</h3>
-                        <form id="profile-form" class="space-y-4">
-                            <div>
-                                <label class="font-black uppercase text-[10px] tracking-widest block mb-1">Username</label>
-                                <input type="text" id="prof-username" class="w-full border-4 border-black p-3 font-black outline-none focus:bg-yellow-50 transition-colors uppercase">
-                            </div>
-                            <div>
-                                <label class="font-black uppercase text-[10px] tracking-widest block mb-1">UPI ID (Public to Squads)</label>
-                                <input type="text" id="prof-upi" class="w-full border-4 border-black p-3 font-black outline-none focus:bg-yellow-50 transition-colors">
-                            </div>
-                            <div>
-                                <label class="font-black uppercase text-[10px] tracking-widest block mb-1">Default Currency</label>
-                                <select id="prof-currency" class="w-full border-4 border-black p-3 font-black outline-none focus:bg-yellow-50 uppercase appearance-none cursor-pointer">
-                                    <option value="INR">INR (₹)</option>
-                                    <option value="USD">USD ($)</option>
-                                    <option value="EUR">EUR (€)</option>
-                                </select>
-                            </div>
-                            <button type="submit" class="w-full bg-lime-300 border-4 border-black p-4 font-black uppercase text-sm shadow-comic hover:-translate-y-1 active:translate-y-1 active:shadow-none transition-all mt-2" id="save-profile-btn">
-                                Save Profile
-                            </button>
-                        </form>
-                    </div>
+        <!-- RIGHT: Edit Forms -->
+        <div style="display:flex;flex-direction:column;gap:var(--space-6)">
 
-                    <div class="bg-slate-100 border-4 border-black shadow-comic p-6">
-                        <h3 class="font-black uppercase text-xl mb-6">Security</h3>
-                        <form id="password-form" class="space-y-4">
-                            <div>
-                                <label class="font-black uppercase text-[10px] tracking-widest block mb-1">New Password</label>
-                                <input type="password" id="new-password" class="w-full border-4 border-black p-3 font-black outline-none focus:bg-white transition-colors" placeholder="••••••••">
-                            </div>
-                            <button type="submit" class="w-full bg-black text-white border-4 border-black p-4 font-black uppercase text-sm shadow-comic hover:-translate-y-1 active:translate-y-1 active:shadow-none transition-all mt-2" id="save-password-btn">
-                                Update Password
-                            </button>
-                        </form>
-                    </div>
-
+          <!-- Edit Profile -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">Edit Profile</span></div>
+            <form id="profile-form" novalidate>
+              <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+                <div class="form-group">
+                  <label class="form-label" for="pf-username">Username</label>
+                  <input class="form-input" type="text" id="pf-username">
+                  <span class="form-error" id="pf-username-error"></span>
                 </div>
-
-                <div class="lg:col-span-7 space-y-8">
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div class="bg-white border-4 border-black p-6 shadow-comic flex flex-col justify-center">
-                            <p class="font-black uppercase text-[10px] tracking-widest text-gray-500 mb-1">Total Paid</p>
-                            <p class="font-black text-3xl" id="stat-total-paid">₹0</p>
-                        </div>
-                        <div class="bg-white border-4 border-black p-6 shadow-comic flex flex-col justify-center">
-                            <p class="font-black uppercase text-[10px] tracking-widest text-gray-500 mb-1">Total Settled</p>
-                            <p class="font-black text-3xl text-green-600" id="stat-total-settled">₹0</p>
-                        </div>
-                        <div class="bg-pink-400 border-4 border-black p-6 shadow-comic flex flex-col justify-center">
-                            <p class="font-black uppercase text-[10px] tracking-widest text-black mb-1">Active Debt</p>
-                            <p class="font-black text-3xl" id="stat-active-debts">₹0</p>
-                        </div>
-                    </div>
-
-                    <div class="bg-white border-4 border-black shadow-comic flex flex-col">
-                        <div class="p-6 border-b-4 border-black bg-purple-100 flex justify-between items-center">
-                            <div>
-                                <h3 class="font-black uppercase text-xl">Trust History</h3>
-                                <p class="font-bold text-[10px] uppercase text-gray-700 tracking-widest mt-1">Current Score: <span id="current-trust-score">--</span></p>
-                            </div>
-                            <div class="w-12 h-12 bg-white border-4 border-black flex items-center justify-center shadow-comic-sm">
-                                <i data-lucide="trending-up" stroke-width="4" class="w-6 h-6"></i>
-                            </div>
-                        </div>
-                        
-                        <div class="p-6 border-b-4 border-black h-64 bg-white relative">
-                            <canvas id="reliabilityChart"></canvas>
-                        </div>
-
-                        <div class="p-6 bg-slate-50 h-56 overflow-y-auto" id="trust-log-container">
-                            <div class="text-center font-black uppercase text-xs text-gray-400 mt-10 tracking-widest">Loading history...</div>
-                        </div>
-                    </div>
-
+                <div class="form-group">
+                  <label class="form-label" for="pf-email">Email</label>
+                  <input class="form-input" type="email" id="pf-email" disabled style="opacity:0.6">
+                  <span class="form-error" id="pf-email-error"></span>
                 </div>
-            </div>
-        </main>
-    </div>
+                <div class="form-group">
+                  <label class="form-label" for="pf-currency">Currency Preference</label>
+                  <div class="select-wrapper">
+                    <select class="form-select" id="pf-currency">
+                      <option value="INR">INR — Indian Rupee</option>
+                      <option value="USD">USD — US Dollar</option>
+                      <option value="EUR">EUR — Euro</option>
+                      <option value="GBP">GBP — British Pound</option>
+                      <option value="SGD">SGD — Singapore Dollar</option>
+                    </select>
+                  </div>
+                </div>
+                <span class="form-error" id="pf-global-error"></span>
+                <button type="submit" class="btn btn-primary" id="pf-submit">Save Changes</button>
+              </div>
+            </form>
+          </div>
 
-    <script type="module">
-        import { api } from './js/core/api.js';
-        import { auth } from './js/core/auth.js';
-        import { utils } from './js/core/utils.js';
+          <!-- Change Password -->
+          <div class="card">
+            <div class="card-header"><span class="card-title">Change Password</span></div>
+            <form id="password-form" novalidate>
+              <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+                <div class="form-group">
+                  <label class="form-label" for="pw-current">Current Password</label>
+                  <input class="form-input" type="password" id="pw-current" autocomplete="current-password">
+                  <span class="form-error" id="pw-current-error"></span>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="pw-new">New Password</label>
+                  <input class="form-input" type="password" id="pw-new" autocomplete="new-password">
+                  <span class="form-error" id="pw-new-error"></span>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="pw-confirm">Confirm New Password</label>
+                  <input class="form-input" type="password" id="pw-confirm" autocomplete="new-password">
+                  <span class="form-error" id="pw-confirm-error"></span>
+                </div>
+                <span class="form-error" id="pw-global-error"></span>
+                <button type="submit" class="btn btn-outline" id="pw-submit">Change Password</button>
+              </div>
+            </form>
+          </div>
 
-        const State = { user: null, history: [], expenses: [], settlements: [], chartInstance: null };
+          <!-- Danger Zone -->
+          <div class="danger-zone">
+            <div class="danger-zone-title">⚠ Danger Zone</div>
+            <p class="text-sm" style="margin-bottom:var(--space-4)">Logging out will clear your session from this device.</p>
+            <button class="btn btn-danger" id="btn-logout">Logout from All Devices</button>
+          </div>
 
-        window.addEventListener('DOMContentLoaded', () => {
-            auth.checkAuthAndRedirect();
-            lucide.createIcons();
-            bindEvents();
-            loadProfileData();
-        });
+        </div>
+      </div>
 
-        async function loadProfileData() {
-            try {
-                const [user, history, expenses, settlements] = await Promise.all([
-                    api.request('/api/users/me/'),
-                    api.request('/api/users/profile/score-history/'),
-                    api.request('/api/expenses/'),
-                    api.request('/api/settlements/')
-                ]);
+    </main>
+  </div>
+  <div id="bottom-nav"></div>
+</div>
 
-                State.user = user;
-                State.history = history || [];
-                State.expenses = expenses || [];
-                State.settlements = settlements || [];
-
-                populateUI(); computeGlobalStats(); renderTrustChart(); renderTrustLog();
-                lucide.createIcons();
-            } catch (err) { showAlert("Failed to load profile data.", "error"); }
-        }
-
-        function populateUI() {
-            document.getElementById('prof-username').value = State.user.username;
-            document.getElementById('prof-upi').value = State.user.upi_id || '';
-            document.getElementById('prof-currency').value = State.user.currency_preference || 'INR';
-            
-            const rawScore = parseFloat(State.user.reliability_score);
-            document.getElementById('current-trust-score').textContent = isNaN(rawScore) ? '70.0' : rawScore.toFixed(1);
-        }
-
-
-function computeGlobalStats() {
-    const myId = String(State.user.id);
-    let totalLentToOthers = 0; 
-    let totalDebtCleared = 0; 
-    let netBalance = 0; // Positive means people owe you; Negative means you owe others
-
-    // 1. Process Expenses
-    State.expenses.forEach(e => {
-        const payerId = String(e.paid_by);
-        
-        if (payerId === myId) {
-            // Logic: You paid the bill. Your contribution is the sum of everyone ELSE'S shares.
-            if (e.splits) {
-                e.splits.forEach(s => {
-                    if (String(s.user) !== myId) {
-                        const amount = parseFloat(s.amount_owed || 0);
-                        totalLentToOthers += amount;
-                        netBalance += amount;
-                    }
-                });
-            }
-        } else {
-            // Logic: Someone else paid. Your debt is your specific share of that bill.
-            if (e.splits) {
-                const mySplit = e.splits.find(s => String(s.user) === myId);
-                if (mySplit) {
-                    const amount = parseFloat(mySplit.amount_owed || 0);
-                    netBalance -= amount;
-                }
-            }
-        }
-    });
-
-    // 2. Process Settlements
-    State.settlements.forEach(s => {
-        if (s.status.toUpperCase() === 'CONFIRMED') {
-            const settlementAmt = parseFloat(s.amount || 0);
-            
-            if (String(s.payer) === myId) {
-                // You sent money to someone else
-                totalDebtCleared += settlementAmt;
-                netBalance += settlementAmt; 
-            } else if (String(s.receiver) === myId) {
-                // Someone sent money to you
-                netBalance -= settlementAmt;
-            }
-        }
-    });
-
-    // 3. Update UI Elements
-    // Total Paid now reflects "Total Lent" (Logically correct for a split app)
-    document.getElementById('stat-total-paid').textContent = utils.formatCurrency(totalLentToOthers);
-    
-    // Total Settled remains the total you have paid back to others
-    document.getElementById('stat-total-settled').textContent = utils.formatCurrency(totalDebtCleared);
-    
-    // Active Debt now shows your actual NET standing
-    const debtEl = document.getElementById('stat-active-debts');
-    const absBalance = Math.abs(netBalance);
-    debtEl.textContent = utils.formatCurrency(absBalance);
-
-    // Dynamic UI Updates based on balance state
-    const debtLabel = debtEl.previousElementSibling;
-    const parentCard = debtEl.parentElement;
-
-    if (netBalance < -0.01) {
-        debtLabel.textContent = "YOU OWE OVERALL";
-        parentCard.classList.replace('bg-white', 'bg-pink-400'); // Standardized "In Debt" color
-    } else if (netBalance > 0.01) {
-        debtLabel.textContent = "YOU ARE OWED";
-        parentCard.classList.replace('bg-pink-400', 'bg-lime-300'); // Standardized "Owed" color
-    } else {
-        debtLabel.textContent = "ALL SETTLED UP";
-        parentCard.className = "bg-white border-4 border-black p-6 shadow-comic flex flex-col justify-center";
-    }
-}
-
-        function renderTrustChart() {
-            const ctx = document.getElementById('reliabilityChart').getContext('2d');
-            let labels = []; let dataPoints = [];
-
-            if (State.history.length === 0) {
-                labels = ['Joined']; dataPoints = [parseFloat(State.user.reliability_score) || 70.0];
-            } else {
-                const recentHistory = State.history.slice(-10);
-                labels = recentHistory.map(h => `${new Date(h.date).getDate()} ${new Date(h.date).toLocaleString('default', { month: 'short' })}`);
-                dataPoints = recentHistory.map(h => h.score);
-            }
-
-            if (State.chartInstance) State.chartInstance.destroy();
-            State.chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: 'Trust Score', data: dataPoints, borderColor: '#000000', backgroundColor: '#a3e635', 
-                        borderWidth: 4, pointBackgroundColor: '#f472b6', pointBorderColor: '#000000', pointBorderWidth: 3, pointRadius: 6, tension: 0, fill: true
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 50, max: 100, grid: { color: '#000', lineWidth: 2 }, ticks: { font: { family: 'Inter', weight: '900' }, color: '#000' } }, x: { grid: { display: false }, ticks: { font: { family: 'Inter', weight: '900' }, color: '#000' } } } }
-            });
-        }
-
-        function renderTrustLog() {
-            const container = document.getElementById('trust-log-container');
-            if (State.history.length === 0) { container.innerHTML = `<div class="text-center font-black uppercase text-xs text-gray-400 mt-10 tracking-widest border-4 border-dashed border-gray-300 p-6">No trust history yet. Settle debts to start earning points!</div>`; return; }
-
-            const reversed = [...State.history].reverse();
-            container.innerHTML = reversed.map((h, i) => {
-                let diffHtml = `<span class="bg-blue-300 border-2 border-black px-2 py-0.5 text-[10px] font-black">BASELINE</span>`;
-                if (i < reversed.length - 1) {
-                    const diff = (h.score - reversed[i + 1].score).toFixed(1);
-                    if (diff > 0) diffHtml = `<span class="bg-lime-300 border-2 border-black px-2 py-0.5 text-[10px] font-black">+${diff} PTS</span>`;
-                    else if (diff < 0) diffHtml = `<span class="bg-red-400 border-2 border-black px-2 py-0.5 text-[10px] font-black text-white">${diff} PTS</span>`;
-                }
-                const d = new Date(h.date);
-                const reason = h.reason || "Score updated";
-                return `<div class="flex items-center justify-between border-b-2 border-black border-dashed py-3 last:border-b-0"><div><p class="font-black uppercase text-xs tracking-wide">${reason}</p><p class="font-bold text-[9px] uppercase text-gray-500 mt-1">${d.getDate()} ${d.toLocaleString('default', { month: 'short' }).toUpperCase()} &middot; SCORE: ${h.score}</p></div><div>${diffHtml}</div></div>`;
-            }).join('');
-        }
-
-        function bindEvents() {
-            document.getElementById('logout-btn')?.addEventListener('click', () => auth.logout());
-
-            document.getElementById('profile-form').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('save-profile-btn');
-                btn.disabled = true; btn.innerText = 'SAVING...';
-                try {
-                    const payload = { username: document.getElementById('prof-username').value.trim(), upi_id: document.getElementById('prof-upi').value.trim(), currency_preference: document.getElementById('prof-currency').value };
-                    State.user = await api.request('/api/users/profile/me/', { method: 'PATCH', body: JSON.stringify(payload) });
-                    populateUI(); utils.hapticFeedback('medium'); confetti({ particleCount: 50, spread: 40, origin: { y: 0.8 } });
-                    showAlert('Profile updated successfully.', 'success');
-                } catch (err) { showAlert('Failed to update profile.', 'error'); } 
-                finally { btn.disabled = false; btn.innerText = 'SAVE PROFILE'; }
-            });
-
-            document.getElementById('password-form').addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('save-password-btn');
-               const newPass = document.getElementById('new-password').value;
-
-                // Match the backend regex rules
-                const hasNumber = /\d/.test(newPass);
-                const hasSymbol = /[!@#$%^&*(),.?":{}|<>]/.test(newPass);
-
-                if (!newPass || newPass.length < 8 || !hasNumber || !hasSymbol) { 
-                    showAlert('Password must be 8+ chars and include a number & symbol.', 'error'); 
-                    return; 
-                } btn.disabled = true; btn.innerText = 'UPDATING...';
-                                try {
-                    await api.request('/api/users/me/', { method: 'PATCH', body: JSON.stringify({ password: newPass }) });
-                    document.getElementById('new-password').value = ''; showAlert('Password updated successfully.', 'success');
-                } catch (err) { showAlert('Failed to update password.', 'error'); } 
-                finally { btn.disabled = false; btn.innerText = 'UPDATE PASSWORD'; }
-            });
-        }
-
-        function showAlert(message, type) {
-            const banner = document.getElementById('alert-banner');
-            banner.innerText = message; banner.classList.remove('hidden', 'bg-lime-300', 'bg-pink-400');
-            banner.classList.add(type === 'success' ? 'bg-lime-300' : 'bg-pink-400'); banner.classList.remove('hidden');
-            setTimeout(() => banner.classList.add('hidden'), 4000);
-        }
-    </script>
+<div id="toast-container"></div>
+<script type="module" src="js/pages/profile.js"></script>
 </body>
 </html>

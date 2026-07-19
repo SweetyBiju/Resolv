@@ -1,160 +1,198 @@
-from django.shortcuts import render
+"""
+groups/views.py
+───────────────
+HTTP mechanics only. No business logic. No balance guards. No inline ORM mutations.
+All domain logic lives in groups/services.py.
 
-# Create your views here.
-# backend/groups/views.py
+ViewSets:
+  GroupViewSet — full CRUD + membership actions + invite management
+"""
+import logging
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from django.db.models import Sum 
-from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import Group
-from .serializers import GroupSerializer 
+from rest_framework.response import Response
+
+from rest_framework.throttling import ScopedRateThrottle
+from .models import Group, GroupMembership
+from .serializers import GroupSerializer, GroupAdminSerializer
+from .permissions import IsGroupAdmin, IsMemberOfGroup
+from . import services
+
+logger = logging.getLogger('resolv.groups')
+
+
+class JoinRateThrottle(ScopedRateThrottle):
+    scope = 'join'
+
 
 class GroupViewSet(viewsets.ModelViewSet):
-   
-    serializer_class = GroupSerializer
-    permission_classes = [IsAuthenticated]
+    """
+    Full group lifecycle.
+    list/retrieve: any member. create/update/destroy: admin only.
+    get_serializer_class() returns GroupAdminSerializer when requester is admin
+    (adds invite_code to response).
+    """
+    permission_classes = [IsAuthenticated, IsGroupAdmin]
+
+    def get_serializer_class(self):
+        """
+        Admin sees invite_code; members do not.
+        Single EXISTS query — no instance caching, no stale data.
+        """
+        pk = self.kwargs.get('pk')
+        if pk and Group.objects.filter(pk=pk, admin=self.request.user).exists():
+            return GroupAdminSerializer
+        return GroupSerializer
 
     def get_queryset(self):
-        # Only return groups the user belongs to that have not been soft-deleted
-        return Group.objects.filter(is_active=True, members=self.request.user)
+        """Own groups only, with admin eager-loaded."""
+        return (
+            Group.objects
+            .filter(members=self.request.user)
+            .select_related('admin')
+            .prefetch_related('groupmembership_set__user')
+        )
 
     def perform_create(self, serializer):
-        # Automatically set the creator as the Admin
-        group = serializer.save(admin=self.request.user)
-        # Add the admin as the first member automatically
-        group.members.add(self.request.user)
-
+        """Delegates to service — creates group + admin membership atomically."""
+        group = services.create_group(
+            name       = serializer.validated_data['name'],
+            admin_user = self.request.user,
+            **{k: v for k, v in serializer.validated_data.items() if k != 'name'},
+        )
+        # Replace serializer instance so the response reflects the created group
+        serializer.instance = group
 
     def destroy(self, request, *args, **kwargs):
-        # Secure the delete operation
+        """Soft-delete with full balance guard. Raises 400 if unsettled."""
         group = self.get_object()
-        if group.admin != request.user:
-            return Response(
-                {'error': 'Only the group admin can delete the group.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        group.delete() # Triggers the soft delete defined in models.py
+        try:
+            services.delete_group(group=group, deleted_by=request.user)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-    @action(detail=True, methods=['post'], url_path='add-member')
+    # ── Membership actions ─────────────────────────────────────────────────────
+
+    @action(detail=True, methods=['post'], url_path='add-member',
+            permission_classes=[IsAuthenticated, IsGroupAdmin])
     def add_member(self, request, pk=None):
-        """
-        API to add a member to a group.
-        Expects: {"user_id": <id>}
-        """
-        group = self.get_object()
-        if group.admin != request.user:
-            return Response(
-                {'error': 'Only the group admin can add members.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        user_id = request.data.get('user_id')
-        if user_id:
-            group.members.add(user_id)
-            return Response({'status': 'member added'}, status=status.HTTP_200_OK)
-        return Response({'error': 'user_id required'}, status=status.HTTP_400_BAD_REQUEST)
-    
-    @action(detail=True, methods=['post'], url_path='remove-member')
+        """Admin-only: add a user by username, email, or database ID."""
+        group      = self.get_object()
+        identifier = request.data.get('identifier') or request.data.get('user_id')
+        if not identifier:
+            return Response({'detail': 'User identifier (username, email, or ID) is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from django.db.models import Q
+        from users.models import User
+        
+        lookup_filter = Q(username__iexact=str(identifier).strip()) | Q(email__iexact=str(identifier).strip())
+        if str(identifier).strip().isdigit():
+            lookup_filter |= Q(pk=int(identifier))
+
+        try:
+            user = User.objects.filter(lookup_filter).first()
+            if not user:
+                raise User.DoesNotExist
+        except (User.DoesNotExist, ValueError, TypeError):
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            services.add_member(group=group, user_to_add=user, added_by=request.user)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'detail': 'Member added.'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='remove-member',
+            permission_classes=[IsAuthenticated, IsGroupAdmin])
     def remove_member(self, request, pk=None):
-        """
-        API to remove a member from a group.
-        Expects: {"user_id": <id>}
-        """
-       
-        
-        group = self.get_object()
-        
-        if group.admin != request.user:
-            return Response(
-                {'error': 'Only the group admin can remove members.'},
-                status=status.HTTP_403_FORBIDDEN
-            )
-            
+        """Admin-only: remove a member if their balance is settled."""
+        group   = self.get_object()
         user_id = request.data.get('user_id')
         if not user_id:
-            return Response({'error': 'user_id required'}, status=status.HTTP_400_BAD_REQUEST)
-            
-        if int(user_id) == group.admin.id:
-            return Response({'error': 'The admin cannot be removed from the group.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'user_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # --- FINANCIAL IMMUTABILITY CHECK ---
-        # Import locally if needed to prevent circular imports
-        from expenses.models import ExpenseSplit, Settlement
-        
-        # 1. Calculate what is owed TO this user in this group
-        owed_to_user = ExpenseSplit.objects.filter(
-            expense__group=group,
-            expense__paid_by_id=user_id,
-            expense__is_active=True
-        ).exclude(user_id=user_id).aggregate(Sum('amount_owed'))['amount_owed__sum'] or 0
-        
-        # 2. Calculate what is owed BY this user in this group
-        owed_by_user = ExpenseSplit.objects.filter(
-            expense__group=group,
-            user_id=user_id,
-            expense__is_active=True
-        ).exclude(expense__paid_by_id=user_id).aggregate(Sum('amount_owed'))['amount_owed__sum'] or 0
-        
-        # 3. Factor in confirmed settlements for this group
-        settlements_sent = Settlement.objects.filter(
-            group=group, payer_id=user_id, status__in=['CONFIRMED', 'confirmed'], is_active=True
-        ).aggregate(Sum('amount'))['amount__sum'] or 0
-        
-        settlements_received = Settlement.objects.filter(
-            group=group, receiver_id=user_id, status__in=['CONFIRMED', 'confirmed'], is_active=True
-        ).aggregate(Sum('amount'))['amount__sum'] or 0
-        
-        # 4. Net balance calculation
-        net_balance = (owed_to_user - settlements_received) - (owed_by_user - settlements_sent)
-        
-        # If balance isn't zero, block removal and send exact balance to frontend modal
-        if abs(net_balance) > 0.01:
-            return Response({
-                "detail": f"UNSETTLED_BALANCES:{net_balance}"
-            }, status=status.HTTP_400_BAD_REQUEST)
-        # ------------------------------------
+        from users.models import User
+        try:
+            user = User.all_objects.get(pk=int(user_id))
+        except (User.DoesNotExist, ValueError, TypeError):
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        group.members.remove(user_id)
-        # Note: In Phase 5, we will trigger the exact-match recalculation logic here
-        return Response({'status': 'member removed'}, status=status.HTTP_200_OK)
+        try:
+            services.remove_member(group=group, user_to_remove=user, removed_by=request.user)
+        except (ValueError, PermissionError) as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['post'], url_path='join')
+        return Response({'detail': 'Member removed.'}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='transfer-admin',
+            permission_classes=[IsAuthenticated, IsGroupAdmin])
+    def transfer_admin(self, request, pk=None):
+        """Admin-only: transfer admin rights to another group member."""
+        group   = self.get_object()
+        user_id = request.data.get('user_id')
+        if not user_id:
+            return Response({'detail': 'user_id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from users.models import User
+        try:
+            new_admin = User.objects.get(pk=int(user_id))
+        except (User.DoesNotExist, ValueError, TypeError):
+            return Response({'detail': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            services.transfer_admin(group=group, new_admin=new_admin, requested_by=request.user)
+        except (ValueError, PermissionError) as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'detail': 'Admin rights transferred successfully.'}, status=status.HTTP_200_OK)
+
+
+    # ── Invite actions ─────────────────────────────────────────────────────────
+
+    @action(detail=False, methods=['post'], url_path='join',
+            throttle_classes=[JoinRateThrottle])
     def join_group(self, request):
         """
-        API to join a group using an 8-character invite code.
-        Expects: {"invite_code": "ABCDEFGH"}
+        Join a group via invite code. Custom throttle: 10/hr (anti brute-force).
+        Idempotent — returns the group if already a member.
         """
-        invite_code = request.data.get('invite_code')
-        
+        invite_code = request.data.get('invite_code', '')
         if not invite_code:
-            return Response(
-                {'error': 'invite_code is required.'}, 
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({'detail': 'invite_code is required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Look for an active group matching the exact invite code
-        group = Group.objects.filter(invite_code=invite_code, is_active=True).first()
-        
-        if not group:
-            return Response(
-                {'error': 'Invalid or inactive invite code.'}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
+        try:
+            group = services.join_via_invite(invite_code=invite_code, user=request.user)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_404_NOT_FOUND)
 
-        # Check if the user is already in the squad
-        if request.user in group.members.all():
-            return Response(
-                {'message': 'You are already a member of this squad.'}, 
-                status=status.HTTP_200_OK
-            )
-
-        # Add the user to the members ManyToMany field
-        group.members.add(request.user)
-        
-        # Return the serialized group data so the frontend can immediately display it
         serializer = self.get_serializer(group)
-        return Response({
-            'message': 'Successfully joined the squad!',
-            'group': serializer.data
-        }, status=status.HTTP_200_OK)
+        return Response({'detail': 'Joined successfully.', 'group': serializer.data},
+                        status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['get'], url_path='invite-code',
+            permission_classes=[IsAuthenticated, IsGroupAdmin])
+    def get_invite_code(self, request, pk=None):
+        """Admin-only: retrieve the current invite code."""
+        group = self.get_object()
+        if group.admin_id != request.user.pk:
+            return Response(
+                {'detail': 'Only the group admin can view the invite code.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return Response({'invite_code': group.invite_code})
+
+    @action(detail=True, methods=['post'], url_path='regenerate-invite',
+            permission_classes=[IsAuthenticated, IsGroupAdmin])
+    def regenerate_invite(self, request, pk=None):
+        """Admin-only: rotate the invite code, invalidating the old one."""
+        group = self.get_object()
+        try:
+            new_code = services.regenerate_invite_code(group=group, requested_by=request.user)
+        except PermissionError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_403_FORBIDDEN)
+        return Response({'invite_code': new_code}, status=status.HTTP_200_OK)
+

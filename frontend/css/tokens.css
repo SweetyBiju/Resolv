@@ -1,0 +1,54 @@
+/* ── Design Tokens ─────────────────────────────────────────────────────────── */
+/* Every color, shadow, and spacing value lives here. Nothing is hardcoded     */
+/* in component CSS. Import this first in every other CSS file.                */
+
+:root {
+  /* Backgrounds */
+  --bg-page:    #F0F2F8;
+  --bg-card:    #FFFFFF;
+  --bg-sidebar: #FFFFFF;
+  --bg-input:   #FFFFFF;
+
+  /* Accent colours */
+  --yellow: #FFD60A;   /* primary CTA, active nav            */
+  --purple: #A855F7;   /* hero blocks, trust score            */
+  --green:  #22C55E;   /* positive, confirmed, success        */
+  --red:    #EF4444;   /* debt, danger, delete                */
+  --blue:   #2563EB;   /* links, secondary actions            */
+
+  /* Typography */
+  --text-primary:   #0A0A0A;
+  --text-secondary: #4B5563;
+  --text-muted:     #9CA3AF;
+
+  /* Borders & Shadows — neo-brutal signature */
+  --border:       2px solid #0A0A0A;
+  --border-thick: 3px solid #0A0A0A;
+  --shadow-card:  4px 4px 0px #0A0A0A;
+  --shadow-btn:   3px 3px 0px #0A0A0A;
+  --shadow-hover: 2px 2px 0px #0A0A0A; /* on hover, shrinks (pressed feel) */
+
+  /* Spacing — 4px base scale */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+
+  /* Typography scale */
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-lg:   18px;
+  --text-xl:   22px;
+  --text-2xl:  28px;
+  --text-3xl:  36px;
+
+  /* Misc */
+  --radius: 4px;
+  --sidebar-width: 220px;
+  --topbar-height: 60px;
+}

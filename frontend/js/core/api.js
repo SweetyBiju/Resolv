@@ -1,158 +1,263 @@
 /**
- * api.js - Core API Communication Layer for Resolv
- * Handles JWT injection, Error Handling, and Demo Mode Fallbacks.
+ * api.js — Owns all HTTP calls to the Django backend.
+ *
+ * Single request() function all calls go through.
+ * On 401 → refreshes token once → retries → on second 401 → logout.
+ * All errors normalized to { status, message, field_errors }.
  */
 
-class ResolvAPI {
-    constructor() {
-        this.baseURL = 'https://resolv-api.onrender.com'; // Update to production URL when deploying
-        this.isDemoMode = false;
+import { getAccessToken, refreshAccessToken, logout } from './auth.js';
+
+// ── Base URL ──────────────────────────────────────────────────────────────────
+
+const BASE_URL = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ? 'http://localhost:8000'
+  : 'https://resolv-api.onrender.com';
+
+// ── Core request ──────────────────────────────────────────────────────────────
+
+/**
+ * Central fetch wrapper. Attaches auth header, handles 401 refresh + retry,
+ * normalises errors.
+ * @param {string} path   — e.g. '/api/v1/groups/'
+ * @param {object} opts   — { method, body, params, isFormData }
+ * @returns {Promise<any>}
+ */
+async function request(path, { method = 'GET', body, params, isFormData = false } = {}) {
+  let url = `${BASE_URL}${path}`;
+  if (params) {
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v != null))
+    ).toString();
+    if (qs) url += `?${qs}`;
+  }
+
+  const makeHeaders = () => {
+    const token = getAccessToken();
+    const h = { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
+    if (!isFormData) h['Content-Type'] = 'application/json';
+    return h;
+  };
+
+  const makeInit = () => ({
+    method,
+    credentials: 'include',
+    headers: makeHeaders(),
+    ...(body != null ? { body: isFormData ? body : JSON.stringify(body) } : {}),
+  });
+
+  let res = await fetch(url, makeInit());
+
+  // Silent refresh on first 401
+  if (res.status === 401) {
+    try {
+      await refreshAccessToken();
+      res = await fetch(url, makeInit());
+    } catch {
+      await logout();
+      throw _error(401, 'Session expired. Please log in again.', {});
     }
-
-    /**
-     * Helper to get the access token from localStorage
-     */
-    getAccessToken() {
-        return localStorage.getItem('resolv_access_token');
+    // Second 401 → force logout
+    if (res.status === 401) {
+      await logout();
+      throw _error(401, 'Session expired. Please log in again.', {});
     }
+  }
 
-    /**
-     * Centralized Request Handler
-     * @param {string} endpoint - The API path
-     * @param {object} options - Fetch options (method, body, etc.)
-     */
-    async request(endpoint, options = {}) {
-        const url = `${this.baseURL}${endpoint}`;
-        const token = this.getAccessToken();
+  // 204 No Content
+  if (res.status === 204) return null;
 
-        const headers = {
-            'Content-Type': 'application/json',
-            ...options.headers,
-        };
-
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        try {
-            const response = await fetch(url, { ...options, headers });
-
-            // Handle 401 Unauthorized (Token Expired or Invalid Credentials)
-            if (response.status === 401) {
-                // If the user is actively trying to log in, throw the error back to the UI
-                // instead of triggering a global logout and redirect.
-                if (endpoint === '/token/') {
-                    const errorData = await response.json();
-                    throw new Error(errorData.detail || 'Invalid credentials');
-                }
-
-                console.warn('Unauthorized request. Redirecting to login...');
-                this.handleAuthFailure();
-                return null;
-            }
-
-            if (!response.ok) {
-            const contentType = response.headers.get("content-type");
-            if (contentType && contentType.includes("application/json")) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'API Request Failed');
-            } else {
-                throw new Error(`Server crashed with status: ${response.status}`);
-            }}
-
-            if (response.status === 204) {
-                return true; 
-            }
-
-            return await response.json();
-        } catch (error) {
-            console.error(`API Error [${endpoint}]:`, error);
-            
-            // Trigger Demo Mode if backend is unreachable
-            if (this.isDemoMode || error.message.includes('Failed to fetch')) {
-                console.info('Switching to Demo Mode (Goa Trip Scenario)');
-                return this.getDemoData(endpoint);
-            }
-            throw error;
-        }
+  // Successful response
+  if (res.ok) {
+    // Check content-type for CSV / blob responses
+    const ct = res.headers.get('Content-Type') || '';
+    if (ct.includes('text/csv') || ct.includes('application/octet-stream')) {
+      return res.blob();
     }
+    return res.json();
+  }
 
-    /**
-     * Logic to handle expired sessions
-     */
-    handleAuthFailure() {
-        localStorage.removeItem('resolv_access_token');
-        localStorage.removeItem('resolv_refresh_token');
-        
-        // Use relative path to maintain subfolder routes like /frontend/
-        // Prevent redirect loops if already on login.html
-        if (!window.location.pathname.includes('login.html')) {
-            window.location.href = 'login.html';
-        }
-    }
+  // Error response
+  let errBody = {};
+  try { errBody = await res.json(); } catch { /* no JSON body */ }
 
-    /**
-     * Demo Mode Mock Data (Goa Trip Scenario)
-     * Provides static data to keep UI functional during offline development.
-     */
-    getDemoData(endpoint) {
-        const demoData = {
-            '/users/me/': {
-                username: 'cool_traveler',
-                upi_id: 'travel@okaxis',
-                currency_preference: 'INR',
-                reliability_score: '98.50'
-            },
-            '/groups/': [
-                { id: 1, name: 'Goa Trip 2024', invite_code: 'GOA2024X', member_count: 5 }
-            ],
-            '/expenses/group_balances/': [
-                { name: 'You', balance: 1250.00 },
-                { name: 'Rahul', balance: -450.00 },
-                { name: 'Sneha', balance: -800.00 }
-            ]
-        };
+  // Handle the custom exception handler wrapper: { error: 400, detail: { field: ["msg"] } }
+  const detail = errBody.detail;
+  let message;
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    // detail is a nested object of field errors — extract the first readable message
+    message = _firstFieldError(detail) || `Request failed (${res.status})`;
+  } else {
+    message = (typeof detail === 'string' ? detail : null)
+      || errBody.message || errBody.error
+      || _firstFieldError(errBody) || `Request failed (${res.status})`;
+  }
+  const field_errors = _extractFieldErrors(
+    (detail && typeof detail === 'object' && !Array.isArray(detail)) ? detail : errBody
+  );
 
-        return demoData[endpoint] || {};
-    }
-
-    // --- Specific API Methods Mapping to Backend Map ---
-
-    // Auth
-    async login(credentials) {
-        return await this.request('/api/token/', {
-            method: 'POST',
-            body: JSON.stringify(credentials)
-        });
-    }
-
-    // Groups
-    async getGroups() {
-        return await this.request('/api/groups/');
-    }
-
-    async getGroupDetails(id) {
-        return await this.request(`/api/groups/${id}/`);
-    }
-
-    // Expenses
-    async getExpenses() {
-        return await this.request('/api/expenses/');
-    }
-
-    async createExpense(data) {
-        return await this.request('/api/expenses/', {
-            method: 'POST',
-            body: JSON.stringify(data)
-        });
-    }
-
-    // Settlements
-    async confirmSettlement(id) {
-        return await this.request(`/api/settlements/${id}/confirm_settlement/`, {
-            method: 'POST'
-        });
-    }
+  throw _error(res.status, message, field_errors);
 }
 
-export const api = new ResolvAPI();
+function _error(status, message, field_errors) {
+  const err = new Error(message);
+  err.status = status;
+  err.message = message;
+  err.field_errors = field_errors || {};
+  return err;
+}
+
+function _firstFieldError(body) {
+  for (const key of Object.keys(body)) {
+    const val = body[key];
+    if (Array.isArray(val) && val.length) return val[0];
+    if (typeof val === 'string') return val;
+  }
+  return null;
+}
+
+function _extractFieldErrors(body) {
+  const fields = {};
+  for (const [k, v] of Object.entries(body)) {
+    if (!['detail', 'message', 'error'].includes(k)) {
+      fields[k] = Array.isArray(v) ? v[0] : String(v);
+    }
+  }
+  return fields;
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export const login = (email, password) =>
+  request('/api/v1/auth/login/', { method: 'POST', body: { email, password } });
+
+export const register = (data) =>
+  request('/api/v1/users/register/', { method: 'POST', body: data });
+
+export const logoutUser = () =>
+  request('/api/v1/auth/logout/', { method: 'POST' });
+
+export const logoutAll = () =>
+  request('/api/v1/auth/logout-all/', { method: 'POST' });
+
+// ── Users ─────────────────────────────────────────────────────────────────────
+
+export const getMe = () =>
+  request('/api/v1/users/me/');
+
+export const updateMe = (data) =>
+  request('/api/v1/users/me/', { method: 'PATCH', body: data });
+
+export const changePassword = (data) =>
+  request('/api/v1/users/change-password/', { method: 'POST', body: data });
+
+export const getUserProfile = (id) =>
+  request(`/api/v1/users/profile/${id}/`);
+
+// ── Groups ────────────────────────────────────────────────────────────────────
+
+export const getGroups = () =>
+  request('/api/v1/groups/');
+
+export const createGroup = (data) =>
+  request('/api/v1/groups/', { method: 'POST', body: data });
+
+export const getGroup = (id) =>
+  request(`/api/v1/groups/${id}/`);
+
+export const updateGroup = (id, data) =>
+  request(`/api/v1/groups/${id}/`, { method: 'PATCH', body: data });
+
+export const deleteGroup = (id) =>
+  request(`/api/v1/groups/${id}/`, { method: 'DELETE' });
+
+export const addMember = (groupId, identifier) =>
+  request(`/api/v1/groups/${groupId}/add-member/`, { method: 'POST', body: { identifier, user_id: identifier } });
+
+export const removeMember = (groupId, userId) =>
+  request(`/api/v1/groups/${groupId}/remove-member/`, { method: 'POST', body: { user_id: userId } });
+
+export const transferAdmin = (groupId, userId) =>
+  request(`/api/v1/groups/${groupId}/transfer-admin/`, { method: 'POST', body: { user_id: userId } });
+
+export const getInviteCode = (groupId) =>
+  request(`/api/v1/groups/${groupId}/invite-code/`);
+
+export const joinGroup = (inviteCode) =>
+  request('/api/v1/groups/join/', { method: 'POST', body: { invite_code: inviteCode } });
+
+export const regenerateInviteCode = (groupId) =>
+  request(`/api/v1/groups/${groupId}/regenerate-invite/`, { method: 'POST' });
+
+// ── Expenses ──────────────────────────────────────────────────────────────────
+
+export const getExpenses = (params) =>
+  request('/api/v1/expenses/', { params });
+
+export const createExpense = (data) =>
+  request('/api/v1/expenses/', { method: 'POST', body: data });
+
+export const updateExpense = (id, data) =>
+  request(`/api/v1/expenses/${id}/`, { method: 'PATCH', body: data });
+
+export const deleteExpense = (id) =>
+  request(`/api/v1/expenses/${id}/`, { method: 'DELETE' });
+
+export const canDeleteExpense = (id) =>
+  request(`/api/v1/expenses/${id}/can-delete/`);
+
+export const getGroupBalances = (groupId) =>
+  request(`/api/v1/expenses/balances/${groupId}/`);
+
+export const getSuggestedSettlements = (groupId) =>
+  request(`/api/v1/expenses/suggested-settlements/${groupId}/`);
+
+// ── Settlements ───────────────────────────────────────────────────────────────
+
+export const getSettlements = (params) =>
+  request('/api/v1/settlements/', { params });
+
+export const createSettlement = (data) =>
+  request('/api/v1/settlements/', { method: 'POST', body: data });
+
+export const confirmSettlement = (id) =>
+  request(`/api/v1/settlements/${id}/confirm_settlement/`, { method: 'POST' });
+
+export const cancelSettlement = (id) =>
+  request(`/api/v1/settlements/${id}/`, { method: 'DELETE' });
+
+// ── Activity ──────────────────────────────────────────────────────────────────
+
+export const getActivity = (params) =>
+  request('/api/v1/activity/', { params });
+
+export const getActivityEntry = (id) =>
+  request(`/api/v1/activity/${id}/`);
+
+// ── Analytics ─────────────────────────────────────────────────────────────────
+
+export const getTrends = (params) =>
+  request('/api/v1/analytics/trends/', { params });
+
+export const getCategoryBreakdown = (params) =>
+  request('/api/v1/analytics/categories/', { params });
+
+export const getBudgetVsActual = (params) =>
+  request('/api/v1/analytics/budget/', { params });
+
+export const getInsights = () =>
+  request('/api/v1/analytics/insights/');
+
+export const exportCSV = (params) =>
+  request('/api/v1/analytics/export/', { params });
+
+// ── Budgets ───────────────────────────────────────────────────────────────────
+
+export const getBudgets = () =>
+  request('/api/v1/budgets/');
+
+export const createBudget = (data) =>
+  request('/api/v1/budgets/', { method: 'POST', body: data });
+
+export const updateBudget = (id, data) =>
+  request(`/api/v1/budgets/${id}/`, { method: 'PATCH', body: data });

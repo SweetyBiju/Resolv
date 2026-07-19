@@ -1,303 +1,327 @@
-from django.shortcuts import render
+"""
+expenses/views.py
+─────────────────
+Two ViewSets, one domain.
 
-# Create your views here.
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import ValidationError
+ExpenseViewSet    — CRUD for expenses + balance + suggested settlements + can-delete
+SettlementViewSet — CRUD for settlements + confirm action
 
-from django.db.models import Sum
-from django.utils import timezone
+Design rules followed:
+  - Views handle HTTP only. All business logic is in services.py.
+  - get_serializer_class() routes read vs write serializers cleanly.
+  - split_data comes from serializer.validated_data, not request.data raw.
+  - Queryset is scoped to group membership — simple, single JOIN, no distinct needed.
+  - Cache is read-first on balance endpoints; Celery keeps it warm after mutations.
+"""
+
 import datetime
-from decimal import Decimal
-from django.db.models import Q
+import logging
 
-from .models import Expense, ExpenseSplit,Settlement,ExpenseItem
-from .serializers import ExpenseSerializer,SettlementSerializer
-from .utils import simplify_debts
+from django.core.cache import cache
+from django.utils import timezone
+from rest_framework import status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from .models import Expense, Settlement
 from .permissions import IsPayerOrGroupAdmin
+from .serializers import (
+    ExpenseSerializer,
+    ExpenseWriteSerializer,
+    SettlementSerializer,
+    SettlementWriteSerializer,
+)
+from .services import (
+    confirm_settlement,
+    create_expense_with_splits,
+    get_blocking_settlements,
+    update_expense_with_splits,
+)
+from .tasks import recompute_group_balances
+from .utils import compute_group_balances, simplify_debts
 
-from users.models import ReliabilityHistory
+logger    = logging.getLogger('resolv.views')
+CACHE_KEY = 'group_balances_{group_id}'
 
-# backend/expenses/views.py
+
+# ── Expense ViewSet ───────────────────────────────────────────────────────────
 
 class ExpenseViewSet(viewsets.ModelViewSet):
-    serializer_class = ExpenseSerializer
-    permission_classes = [IsAuthenticated, IsPayerOrGroupAdmin] 
+    """
+    list:    GET  /api/v1/expenses/
+    create:  POST /api/v1/expenses/
+    retrieve:GET  /api/v1/expenses/{id}/
+    update:  PATCH /api/v1/expenses/{id}/
+    destroy: DELETE /api/v1/expenses/{id}/
+
+    Extra actions:
+      GET /api/v1/expenses/balances/{group_id}/
+      GET /api/v1/expenses/suggested-settlements/{group_id}/
+      GET /api/v1/expenses/{id}/can-delete/
+    """
+
+    permission_classes = [IsAuthenticated, IsPayerOrGroupAdmin]
+
+    def get_serializer_class(self):
+        if self.action in ('create', 'update', 'partial_update'):
+            return ExpenseWriteSerializer
+        return ExpenseSerializer
 
     def get_queryset(self):
-        user = self.request.user
-        # Return expenses if you are in the group, OR you paid, OR you were split on it.
-        # Notice we do NOT filter by group__is_active so history is preserved.
-        return Expense.objects.filter(
-            Q(group__members=user) | 
-            Q(paid_by=user) | 
-            Q(splits__user=user),
-            is_active=True
-        ).distinct()
-   
+        """
+        Return active expenses in groups the requesting user belongs to.
+        Supports optional query-param filters:
+          ?group=<id>  ?category=<CAT>  ?date_after=YYYY-MM-DD  ?date_before=YYYY-MM-DD
+        Single JOIN on group__members — no OR conditions, no distinct() needed.
+        prefetch_related loads splits + items in 2 extra queries (not N queries).
+        """
+        qs = (
+            Expense.objects
+            .filter(group__members=self.request.user, group__is_active=True)
+            .select_related('paid_by', 'group')
+            .prefetch_related('splits__user', 'items')
+            .order_by('-date', '-created_at')
+        )
+
+        params = self.request.query_params
+        group_id    = params.get('group')
+        category    = params.get('category')
+        date_after  = params.get('date_after')
+        date_before = params.get('date_before')
+
+        if group_id:
+            qs = qs.filter(group_id=group_id)
+        if category:
+            qs = qs.filter(category=category.upper())
+        if date_after:
+            qs = qs.filter(date__gte=date_after)
+        if date_before:
+            qs = qs.filter(date__lte=date_before)
+
+        return qs
+
     def perform_create(self, serializer):
-        """Automates the attribution of the payer and triggers split logic."""# Safely extract the raw ID sent from the frontend JSON payload
+        """
+        Validate payer membership, then delegate to service layer.
+        split_data comes from serializer.validated_data — already validated.
+        """
+        group      = serializer.validated_data['group']
+        split_data = serializer.validated_data.pop('split_data', [])
+
+        # Resolve payer: explicit paid_by in payload, else request.user
+        # BUG 6 FIX: single .get() call instead of .exists() then .get() (was 2 DB queries).
+        # Also validates paid_by_id is a valid integer before touching the DB.
         paid_by_id = self.request.data.get('paid_by')
-        
         if paid_by_id:
-            # By using 'paid_by_id=' we can safely assign the integer directly to the DB
-            expense = serializer.save(paid_by_id=paid_by_id)
+            try:
+                paid_by = group.members.get(pk=int(paid_by_id))
+            except (ValueError, TypeError):
+                raise ValidationError({"paid_by": "paid_by must be a valid user ID (integer)."})
+            except group.members.model.DoesNotExist:
+                raise ValidationError({"paid_by": "The specified payer is not a member of this group."})
         else:
-            # Fallback to the logged-in user if nothing was selected
-            expense = serializer.save(paid_by=self.request.user)
-        
-        self.calculate_splits(expense, self.request.data.get('split_data', []))
+            paid_by = self.request.user
 
-    def calculate_splits(self, expense, split_data):
-        """Handles the mathematical distribution of debt."""
-        group_members = expense.group.members.all()
-        member_count = group_members.count()
+        create_expense_with_splits(
+            title      = serializer.validated_data['title'],
+            amount     = serializer.validated_data['amount'],
+            group      = group,
+            paid_by    = paid_by,
+            split_type = serializer.validated_data.get('split_type', 'EQUAL'),
+            split_data = split_data,
+            currency   = serializer.validated_data.get('currency', 'INR'),
+            category   = serializer.validated_data.get('category', 'OTHER'),
+            notes      = serializer.validated_data.get('notes', ''),
+            receipt_url= serializer.validated_data.get('receipt_url'),
+            date       = serializer.validated_data.get('date'),
+        )
+        recompute_group_balances.delay(group.id)
 
-        # FIX: Prevent DivisionByZero if group is empty
-        if member_count == 0:
-            return 
+    def perform_update(self, serializer):
+        """
+        Replace expense fields and all splits atomically via service.
+        split_data comes from serializer.validated_data — already validated.
+        """
+        split_data = serializer.validated_data.pop('split_data', [])
+        expense    = update_expense_with_splits(
+            expense        = serializer.instance,
+            validated_data = serializer.validated_data,
+            split_data     = split_data,
+        )
+        recompute_group_balances.delay(expense.group_id)
 
-       
-        if expense.split_type == 'EQUAL':
-            share = expense.amount / member_count
-            for member in group_members:
-                ExpenseSplit.objects.create(
-                    expense=expense,
-                    user=member,
-                    amount_owed=share
-                )
-        elif expense.split_type == 'EXACT':
-            # Directly use the amounts provided in split_data
-            for data in split_data:
-                ExpenseSplit.objects.create(
-                    expense=expense, 
-                    user_id=data['user'], 
-                    amount_owed=Decimal(str(data['amount']))
-                )
+    def destroy(self, request, *args, **kwargs):
+        """Soft delete — blocked if confirmed settlements exist against this expense."""
+        expense  = self.get_object()
+        blocking = get_blocking_settlements(expense)
+        if blocking:
+            return Response(
+                {"detail": "SETTLED_DEBTS_EXIST", "blocking": blocking},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        expense.delete()
+        recompute_group_balances.delay(expense.group_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
-        elif expense.split_type == 'PERCENT':
-            # Calculate amount based on the total bill percentage
-            for data in split_data:
-                share = (Decimal(str(data['percentage'])) / 100) * expense.amount
-                ExpenseSplit.objects.create(
-                    expense=expense, 
-                    user_id=data['user'], 
-                    amount_owed=share
-                )
-        elif expense.split_type == 'ITEM':
-            #implementation for Item-based splitting
-            for data in split_data:
-                # Expects data format: {"name": "Burger", "amount": 150.00, "user_ids": [1, 2]}
-                item = ExpenseItem.objects.create(expense=expense, name=data['name'], amount=Decimal(str(data['amount'])))
-                item_share = item.amount / len(data['user_ids'])
-                for uid in data['user_ids']:
-                    ExpenseSplit.objects.create(expense=expense, item=item, user_id=uid, amount_owed=item_share)
-
-    @action(detail=False, methods=['get'], url_path='balances/(?P<group_id>[^/.]+)')
-    def group_balances(self, request, group_id=None):
-        """Aggregates net financial standing for every group member."""
-        from groups.models import Group
-        try:
-            group = Group.objects.get(pk=group_id)
-        except Group.DoesNotExist:
-            return Response({"error": "Group not found"}, status=404)
-            
-        members = group.members.all()
-        results = []
-
-        for member in members:
-            # 1. Total Paid (Active expenses only)
-            total_paid = Expense.objects.filter(group=group, paid_by=member, is_active=True).aggregate(Sum('amount'))['amount__sum'] or 0
-            
-            # 2. Total Owed (Active expenses only)
-            total_owed = ExpenseSplit.objects.filter(expense__group=group, user=member, expense__is_active=True).aggregate(Sum('amount_owed'))['amount_owed__sum'] or 0
-            
-            # 3. Confirmed Settlements
-            settlements_sent = Settlement.objects.filter(group=group, payer=member, status__in=['CONFIRMED', 'confirmed'], is_active=True).aggregate(Sum('amount'))['amount__sum'] or 0
-            settlements_received = Settlement.objects.filter(group=group, receiver=member, status__in=['CONFIRMED', 'confirmed'], is_active=True).aggregate(Sum('amount'))['amount__sum'] or 0
-            
-            # Net Balance = (Paid - Owed) + (Sent - Received)
-            net_balance = float(total_paid - total_owed + settlements_sent - settlements_received)
-            
-            results.append({
-                "user_id": member.id,
-                "username": member.username,
-                "net_balance": round(net_balance, 2)
-            })
-        return Response(results)
-
-
-
-
-
-    @action(detail=False, methods=['get'], url_path='suggested-settlements/(?P<group_id>[^/.]+)')
-    def suggested_settlements(self, request, group_id=None):
-        """Runs the Dual-Phase Algorithm to return minimal transactions."""
-        balances_response = self.group_balances(request, group_id=group_id)
-        if balances_response.status_code != 200:
-            return balances_response
-            
-        settlements = simplify_debts(balances_response.data)
-        return Response({
-            "group_id": group_id,
-            "suggested_payments": settlements
-        })
+    # ── Extra actions ─────────────────────────────────────────────────────────
 
     @action(detail=True, methods=['get'], url_path='can-delete')
     def can_delete_check(self, request, pk=None):
-        """
-        Pre-check endpoint for the frontend to determine if an expense 
-        is locked by existing settlements.
-        """
-        expense = self.get_object()
-        group = expense.group
-        splits = expense.splits.all()
-        
-        blocking_settlements = []
-        
-        for split in splits:
-            debtor = split.user
-            creditor = expense.paid_by
-            
-            if debtor == creditor:
-                continue
-                
-            # Check for confirmed settlements between these two users in this group
-            # that happened AFTER this expense was created.
-            has_settled = Settlement.objects.filter(
-                group=group,
-                payer=debtor,
-                receiver=creditor,
-                status__in=['CONFIRMED', 'confirmed'],
-                is_active=True,
-                created_at__gte=expense.created_at
-            ).exists()
-            
-            if has_settled:
-                # Add to our list to send back to the UI
-                blocking_settlements.append({
-                    "debtor": debtor.username,
-                    "creditor": creditor.username
-                })
-                
-        if blocking_settlements:
-            return Response({
-                "can_delete": False,
-                "reason": "SETTLED_DEBTS_EXIST",
-                "details": blocking_settlements
-            }, status=status.HTTP_200_OK)
-            
+        """Pre-flight check before the user attempts deletion."""
+        expense  = self.get_object()
+        blocking = get_blocking_settlements(expense)
+        if blocking:
+            return Response(
+                {"can_delete": False, "reason": "SETTLED_DEBTS_EXIST", "blocking": blocking},
+                status=status.HTTP_200_OK,
+            )
         return Response({"can_delete": True}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'],
+            url_path=r'balances/(?P<group_id>[^/.]+)')
+    def group_balances(self, request, group_id=None):
+        """
+        Return net balance per member for a group.
+        Reads from cache if warm; computes from DB otherwise.
+        """
+        group_id = int(group_id)
+        if not _user_in_group(request.user, group_id):
+            return Response({"error": "Not found or access denied."}, status=status.HTTP_404_NOT_FOUND)
+
+        cached = cache.get(CACHE_KEY.format(group_id=group_id))
+        if cached:
+            return Response(cached['raw'])
+
+        balances = compute_group_balances(group_id)
+        return Response(balances)
+
+    @action(detail=False, methods=['get'],
+            url_path=r'suggested-settlements/(?P<group_id>[^/.]+)')
+    def suggested_settlements(self, request, group_id=None):
+        """
+        Return simplified settlement suggestions for a group.
+        Uses cached result if available; falls back to live computation.
+        """
+        group_id = int(group_id)
+        if not _user_in_group(request.user, group_id):
+            return Response({"error": "Not found or access denied."}, status=status.HTTP_404_NOT_FOUND)
+
+        cached = cache.get(CACHE_KEY.format(group_id=group_id))
+        if cached:
+            return Response({"group_id": group_id, "suggested_payments": cached['simplified']})
+
+        balances   = compute_group_balances(group_id)
+        simplified = simplify_debts(balances)
+        return Response({"group_id": group_id, "suggested_payments": simplified})
+
+
+# ── Settlement ViewSet ────────────────────────────────────────────────────────
+
+class SettlementViewSet(viewsets.ModelViewSet):
+    """
+    list:    GET  /api/v1/settlements/
+    create:  POST /api/v1/settlements/
+    retrieve:GET  /api/v1/settlements/{id}/
+    destroy: DELETE /api/v1/settlements/{id}/   (soft delete → CANCELLED)
+
+    Extra actions:
+      POST /api/v1/settlements/{id}/confirm_settlement/
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return SettlementWriteSerializer
+        return SettlementSerializer
+
+    def get_queryset(self):
+        """
+        Return settlements where the user is payer or receiver.
+        Uses all_objects to include soft-deleted (CANCELLED) settlements.
+        Supports optional query-param filter:
+          ?status=PENDING | CONFIRMED | CANCELLED
+        Users see settlements they initiated AND received.
+        """
+        user = self.request.user
+        qs = (
+            Settlement.all_objects
+            .filter(group__members=user, group__is_active=True)
+            .select_related('payer', 'receiver', 'group')
+            .order_by('-created_at')
+        )
+
+        status_filter = self.request.query_params.get('status')
+        if status_filter:
+            qs = qs.filter(status=status_filter.upper())
+
+        return qs
+
+    def perform_create(self, serializer):
+        """
+        Create a settlement. Guards:
+          - Duplicate detection: same payer/receiver/amount within 60 seconds.
+          - payer is always request.user — never from payload.
+        """
+        receiver = serializer.validated_data['receiver']
+        amount   = serializer.validated_data['amount']
+
+        # Duplicate guard — prevents accidental double-submission
+        cutoff = timezone.now() - datetime.timedelta(seconds=60)
+        if Settlement.objects.filter(
+            payer=self.request.user,
+            receiver=receiver,
+            amount=amount,
+            created_at__gte=cutoff,
+            is_active=True,
+        ).exists():
+            raise ValidationError(
+                {"detail": "Duplicate settlement detected. Please wait 60 seconds before retrying."}
+            )
+
+        serializer.save(payer=self.request.user)
 
     def destroy(self, request, *args, **kwargs):
         """
-        Override the default destroy method to enforce the lock 
-        on the server side during the actual DELETE call.
-        """
-        expense = self.get_object()
-        group = expense.group
-        
-        # Enforce the same check directly before deletion
-        for split in expense.splits.all():
-            debtor = split.user
-            creditor = expense.paid_by
-            
-            if debtor != creditor:
-                has_settled = Settlement.objects.filter(
-                    group=group,
-                    payer=debtor,
-                    receiver=creditor,
-                    status__in=['CONFIRMED', 'confirmed'],
-                    is_active=True,
-                    created_at__gte=expense.created_at
-                ).exists()
-                
-                if has_settled:
-                    return Response(
-                        {"detail": "SETTLED_DEBTS_EXIST"}, 
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-        # If we pass the check, perform the soft delete
-        expense.is_active = False
-        expense.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
-
-
-class SettlementViewSet(viewsets.ModelViewSet):
-    serializer_class = SettlementSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        # Return settlements if you are in the group, OR you sent it, OR you received it.
-        return Settlement.objects.filter(
-            Q(group__members=user) | 
-            Q(payer=user) | 
-            Q(receiver=user),
-            is_active=True
-        ).distinct()
-    
-    def perform_create(self, serializer):
-        """
-        Payer initiates a settlement. Status defaults to 'PENDING'.
-        """
-
-        # SECURITY: 60s duplicate transaction check
-        time_threshold = timezone.now() - datetime.timedelta(seconds=60)
-        duplicate_exists = Settlement.objects.filter(
-            payer=self.request.user,
-            receiver=serializer.validated_data['receiver'],
-            amount=serializer.validated_data['amount'],
-            created_at__gte=time_threshold,
-            is_active=True
-        ).exists()
-
-        if duplicate_exists:
-            raise ValidationError("Duplicate settlement detected. Please wait 60 seconds.")
-        serializer.save(payer=self.request.user)
-
-    @action(detail=True, methods=['post'], url_path='confirm_settlement')
-    def confirm_settlement(self, request, pk=None):
-        """
-        Receiver confirms they got the money. This triggers the score boost.
-       
+        Soft delete a settlement — only PENDING settlements can be cancelled.
+        CONFIRMED settlements cannot be undone.
         """
         settlement = self.get_object()
 
-        # SECURITY: Only the person receiving the money can confirm it
-        if settlement.receiver != request.user:
+        if settlement.payer != request.user:
             return Response(
-                {"error": "Only the receiver can confirm this payment."}, 
-                status=status.HTTP_403_FORBIDDEN
+                {"error": "Only the payer can cancel a settlement."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         if settlement.status == 'CONFIRMED':
-            return Response({"message": "Already confirmed."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "Confirmed settlements cannot be cancelled."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-        # 1. Update Settlement Status
-        settlement.status = 'CONFIRMED'
-        settlement.save()
+        settlement.delete()     # soft delete → is_active=False, status=CANCELLED
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
-        # 2. Boost Payer's Reliability Score
-        # Mathematical logic: S_new = min(100.0, S_old + 0.5)
-        payer = settlement.payer
-        current_score = float(payer.reliability_score)
-        new_score = min(100.0, current_score + 0.5)
-        payer.reliability_score = new_score
-        payer.save()
+    @action(detail=True, methods=['post'], url_path='confirm_settlement')
+    def confirm_settlement_action(self, request, pk=None):
+        """Receiver confirms payment. Atomic: status + score + history."""
+        settlement = self.get_object()
+        try:
+            result = confirm_settlement(settlement, confirmed_by=request.user)
+            recompute_group_balances.delay(settlement.group_id)
+            return Response(result, status=status.HTTP_200_OK)
+        except PermissionError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_403_FORBIDDEN)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 3. Record History for the Profile Line Graph
-        ReliabilityHistory.objects.create(
-            user=payer,
-            score=new_score,
-            reason=f"Successfully settled debt with {request.user.username}"
-        )
 
-        return Response({
-            "status": "confirmed",
-            "new_reliability_score": new_score,
-            "message": "Confetti time!" # Frontend will look for this
-        }, status=status.HTTP_200_OK)
+# ── Private helpers ───────────────────────────────────────────────────────────
+
+def _user_in_group(user, group_id: int) -> bool:
+    """Single query membership check. Used by balance endpoints."""
+    from groups.models import Group
+    return Group.objects.filter(pk=group_id, members=user).exists()

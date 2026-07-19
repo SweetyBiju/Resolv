@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settlements — Resolv</title>
+  <meta name="description" content="View and manage all settlements — create, confirm, or cancel.">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/layout.css">
+</head>
+<body>
+<div id="app">
+  <div id="sidebar"></div>
+  <div id="main">
+    <header id="topbar">
+      <span class="topbar-title">Settlements</span>
+      <div class="topbar-right">
+        <a href="profile.html" class="topbar-user">
+          <div class="avatar" id="topbar-avatar">?</div>
+          <span class="topbar-username" id="topbar-username"></span>
+        </a>
+      </div>
+    </header>
+    <main id="content">
+
+      <div class="page-header">
+        <h1 class="page-title">Settlements</h1>
+        <button class="btn btn-primary" id="btn-record-settlement">+ Record Settlement</button>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="tabs" style="margin-bottom:var(--space-6)">
+        <button class="tab-btn active" data-status="ALL"       id="stab-all">All</button>
+        <button class="tab-btn"        data-status="PENDING"   id="stab-pending">Pending</button>
+        <button class="tab-btn"        data-status="CONFIRMED" id="stab-confirmed">Confirmed</button>
+        <button class="tab-btn"        data-status="CANCELLED" id="stab-cancelled">Cancelled</button>
+      </div>
+
+      <!-- Settlements List -->
+      <div id="settlements-list"></div>
+      <div id="settlements-empty" class="empty-state hidden">No settlements found.</div>
+
+      <!-- Suggested Settlements Section -->
+      <div class="card" style="margin-top:var(--space-8)" id="suggested-section">
+        <div class="card-header" style="cursor:pointer" id="suggested-toggle">
+          <span class="card-title">⚡ Suggested by Resolv</span>
+          <button class="btn-ghost btn-sm" id="suggested-chevron">▼</button>
+        </div>
+        <div id="suggested-body">
+          <div class="form-group" style="margin-bottom:var(--space-4)">
+            <label class="form-label" for="suggested-group-select">Select Group</label>
+            <div class="select-wrapper">
+              <select class="form-select" id="suggested-group-select" style="max-width:260px"></select>
+            </div>
+          </div>
+          <div id="suggested-list"></div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+  <div id="bottom-nav"></div>
+</div>
+
+<!-- Create Settlement Modal -->
+<div class="modal-overlay" id="modal-settlement" hidden>
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Record Settlement</span>
+      <button class="modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="ns-group">Group</label>
+        <div class="select-wrapper">
+          <select class="form-select" id="ns-group"></select>
+        </div>
+        <span class="form-error" id="ns-group-error"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ns-receiver">Pay To</label>
+        <div class="select-wrapper">
+          <select class="form-select" id="ns-receiver"></select>
+        </div>
+        <span class="form-error" id="ns-receiver-error"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ns-amount">Amount</label>
+        <input class="form-input" type="number" id="ns-amount" min="0.01" step="0.01" placeholder="0.00">
+        <span class="form-error" id="ns-amount-error"></span>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ns-currency">Currency</label>
+        <div class="select-wrapper">
+          <select class="form-select" id="ns-currency">
+            <option value="INR">INR</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="GBP">GBP</option>
+          </select>
+        </div>
+      </div>
+      <div id="ns-debt-info" class="text-sm" style="padding:var(--space-2) var(--space-3);border-radius:var(--radius);margin-bottom:var(--space-3);display:none">
+      </div>
+      <div id="ns-over-settlement-warn" style="background:var(--bg-warning, #fff8e1);border:1px solid var(--border-warning, #ffe082);border-radius:var(--radius);padding:var(--space-3);margin-bottom:var(--space-3);display:none">
+        <div class="text-sm fw-600" style="color:var(--text-warning, #e65100);margin-bottom:var(--space-2)" id="ns-warn-text"></div>
+        <label style="display:flex;align-items:center;gap:var(--space-2);cursor:pointer" class="text-sm">
+          <input type="checkbox" id="ns-allow-over" style="accent-color:var(--primary)">
+          <span>I understand — proceed anyway</span>
+        </label>
+      </div>
+      <span class="form-error" id="ns-global-error"></span>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" id="ns-cancel">Cancel</button>
+      <button class="btn btn-primary" id="ns-submit">Save</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script type="module" src="js/pages/settlements.js"></script>
+</body>
+</html>
